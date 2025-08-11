@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   Session,
   SessionDocument,
@@ -69,11 +69,12 @@ export class SessionsService {
 
     // Check provider availability
     const isProviderAvailable = await this.availabilityService.isAvailable(
-      service.providerId.toString(),
+      service.providerId._id.toString(),
       new Date(createSessionDto.sessionDate),
       startTime,
       endTime,
     );
+
 
     if (!isProviderAvailable) {
       throw new ConflictException(
@@ -83,11 +84,12 @@ export class SessionsService {
 
     // Check for conflicts with existing sessions
     const hasConflict = await this.checkSessionConflict(
-      service.providerId.toString(),
+      service.providerId._id.toString(),
       new Date(createSessionDto.sessionDate),
       startTime,
       endTime,
     );
+
 
     if (hasConflict) {
       throw new ConflictException(
@@ -98,7 +100,7 @@ export class SessionsService {
     // Create session
     const session = new this.sessionModel({
       seekerId,
-      providerId: service.providerId,
+      providerId: service.providerId._id,
       serviceId: service._id,
       serviceName: service.title,
       category: service.category,
@@ -137,7 +139,7 @@ export class SessionsService {
   }
 
   async findBySeeker(seekerId: string, status?: string, skip = 0, limit = 20) {
-    const query: any = { seekerId };
+    const query: any = { seekerId: new Types.ObjectId(seekerId) };
     if (status) {
       query.status = status;
     }
@@ -172,7 +174,7 @@ export class SessionsService {
     skip = 0,
     limit = 20,
   ) {
-    const query: any = { providerId };
+    const query: any = { providerId: new Types.ObjectId(providerId) };
     if (status) {
       query.status = status;
     }
@@ -188,6 +190,7 @@ export class SessionsService {
         .exec(),
       this.sessionModel.countDocuments(query).exec(),
     ]);
+
 
     return {
       sessions: sessions.map((session) => this.mapToResponseDto(session)),
@@ -365,7 +368,7 @@ export class SessionsService {
     excludeSessionId?: string,
   ): Promise<boolean> {
     const query: any = {
-      providerId,
+      providerId: new Types.ObjectId(providerId),
       sessionDate: date,
       status: {
         $in: [

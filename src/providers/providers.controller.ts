@@ -65,7 +65,7 @@ export class ProvidersController {
     type: DashboardSummaryDto,
   })
   async getDashboardSummary(@Request() req): Promise<DashboardSummaryDto> {
-    return this.dashboardService.getDashboardSummary(req.user.sub);
+    return this.dashboardService.getDashboardSummary(req.user.id);
   }
 
   @Get('earnings')
@@ -79,7 +79,7 @@ export class ProvidersController {
     @Query() query: EarningsQueryDto,
     @Request() req,
   ): Promise<EarningsSummaryDto> {
-    return this.earningsService.getEarningsSummary(req.user.sub, query);
+    return this.earningsService.getEarningsSummary(req.user.id, query);
   }
 
   @Get('wallet')
@@ -90,7 +90,7 @@ export class ProvidersController {
     type: WalletInfoDto,
   })
   async getWalletInfo(@Request() req): Promise<WalletInfoDto> {
-    return this.getWalletData(req.user.sub);
+    return this.getWalletData(req.user.id);
   }
 
   @Post('withdrawals')
@@ -106,7 +106,7 @@ export class ProvidersController {
     @Body() dto: WithdrawalRequestDto,
     @Request() req,
   ): Promise<WithdrawalResponseDto> {
-    return this.withdrawalService.requestWithdrawal(req.user.sub, dto);
+    return this.withdrawalService.requestWithdrawal(req.user.id, dto);
   }
 
   @Get('withdrawals')
@@ -120,7 +120,7 @@ export class ProvidersController {
     @Query() query: WithdrawalQueryDto,
     @Request() req,
   ): Promise<WithdrawalHistoryDto> {
-    return this.withdrawalService.getWithdrawalHistory(req.user.sub, query);
+    return this.withdrawalService.getWithdrawalHistory(req.user.id, query);
   }
 
   @Get('analytics')
@@ -134,7 +134,7 @@ export class ProvidersController {
     @Query() query: AnalyticsQueryDto,
     @Request() req,
   ): Promise<AnalyticsDto> {
-    return this.analyticsService.getAnalytics(req.user.sub, query);
+    return this.analyticsService.getAnalytics(req.user.id, query);
   }
 
   @Get('bookings/upcoming')
@@ -149,7 +149,7 @@ export class ProvidersController {
     @Request() req,
   ): Promise<UpcomingBookingsDto> {
     return this.upcomingBookingsService.getUpcomingBookings(
-      req.user.sub,
+      req.user.id,
       query,
     );
   }

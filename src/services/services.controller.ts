@@ -138,12 +138,15 @@ export class ServicesController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Categories retrieved successfully',
+    description: 'Categories retrieved successfully (English and French)',
   })
   async getCategories() {
-    return {
-      categories: await this.servicesService.getCategories(),
-    };
+    const [categories, categoriesFr] = await Promise.all([
+      this.servicesService.getCategories(),
+      this.servicesService.getCategoriesFr(),
+    ]);
+
+    return { categories, categoriesFr };
   }
 
   @Get('my-services')

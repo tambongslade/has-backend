@@ -20,6 +20,7 @@ This is the **HAS (House Service) Backend** - a NestJS-based RESTful API for a s
 
 ### Essential Commands
 - `npm run start:dev` - Start development server with hot reload
+- `npm run start:debug` - Start with debugging enabled
 - `npm run build` - Build for production
 - `npm run start:prod` - Run production build
 - `npm run lint` - Run ESLint with auto-fix
@@ -41,8 +42,11 @@ src/
 ├── auth/           # Authentication & authorization (JWT, roles)
 ├── users/          # User management (Provider/Seeker profiles)
 ├── services/       # Service catalog management
-├── bookings/       # Booking system + availability management
-├── wallet/         # Payment processing & earnings
+├── bookings/       # Booking system + availability management + sessions
+├── wallet/         # Payment processing & earnings (Fapshi integration)
+├── providers/      # Provider-specific features (analytics, dashboard)
+├── admin/          # AdminJS-powered admin panel
+├── config/         # Session configuration and settings
 └── common/         # Shared utilities & interceptors
 ```
 
@@ -62,10 +66,12 @@ src/
 
 ### Database Schema Relationships
 - Users (Seekers/Providers) → Services (1:many)
-- Services → Bookings (1:many)
+- Services → Bookings (1:many) + Sessions (1:many)
 - Providers → Availability schedules (1:many by day)
 - Providers → Wallets (1:1)
-- Bookings → Transactions (1:many)
+- Providers → Analytics data (1:1)
+- Bookings/Sessions → Transactions (1:many)
+- Sessions → SessionConfig (many:1)
 
 ## Environment Configuration
 
@@ -169,6 +175,7 @@ npm run test:cov -- --testPathPattern=auth/
 ### Local Development
 - Server runs on `http://localhost:3000`
 - Swagger docs at `http://localhost:3000/api/docs`
+- Admin panel at `http://localhost:3000/admin` (admin@has.com / admin123)
 - Health check at `http://localhost:3000/api/v1/health`
 
 ### Database Debugging
@@ -197,3 +204,21 @@ Available categories: cleaning, plumbing, electrical, painting, gardening, carpe
 - Time slot granularity
 - Provider-specific availability
 - Real-time booking conflict prevention
+
+### Session-Based System
+- New session-based bookings alongside legacy bookings
+- Configurable pricing per category via SessionConfig
+- Base duration + overtime calculation
+- Default 3000 FCFA base price with category overrides
+
+### Admin Panel
+- AdminJS-powered interface at `/admin`
+- Comprehensive data management for all entities
+- Real-time monitoring of users, bookings, sessions, payments
+- Financial oversight with wallet and transaction tracking
+
+### Payment Integration
+- Fapshi payment provider integration
+- Automatic payment link generation
+- Webhook handling for payment status updates
+- Multi-provider payment architecture ready

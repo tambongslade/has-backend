@@ -45,6 +45,7 @@ describe('PaymentService', () => {
     amount: 25000,
     provider: PaymentProvider.MTN_MONEY,
     status: PaymentStatus.PENDING,
+    failureReason: undefined as any,
     paymentReference: 'PAY-1641234567890-ABC123',
     save: jest.fn().mockResolvedValue(this),
   };

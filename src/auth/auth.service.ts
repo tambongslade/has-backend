@@ -76,6 +76,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.isActive === false) {
+      throw new UnauthorizedException('Account is disabled');
+    }
+
     // Generate JWT token
     const payload: JwtPayload = {
       sub: (user._id as any).toString(),

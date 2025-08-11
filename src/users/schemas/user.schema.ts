@@ -6,6 +6,7 @@ export type UserDocument = User & Document;
 export enum UserRole {
   SEEKER = 'seeker',
   PROVIDER = 'provider',
+  ADMIN = 'admin',
 }
 
 @Schema({ timestamps: true })
@@ -29,6 +30,9 @@ export class User {
     default: null,
   })
   role?: UserRole | null;
+
+  @Prop({ default: true })
+  isActive: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

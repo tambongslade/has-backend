@@ -3,14 +3,25 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger, VersioningType } from '@nestjs/common';
-import { AdminWorkingModule } from './admin/admin-working.module';
 
 async function bootstrap() {
   const appModule = await AppModule.forRootAsync();
   const app = await NestFactory.create(appModule);
 
-  // Set up AdminJS with Express app
-  AdminWorkingModule.setApp(app);
+  // Enable CORS
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  });
+
+  // Admin panel removed (AdminJS integration disabled)
 
   // Enable API versioning
   app.enableVersioning({
@@ -51,7 +62,7 @@ async function bootstrap() {
   // Log important links
   logger.log(`🚀 Application is running on: ${baseUrl}`);
   logger.log(`📚 Swagger Documentation: ${baseUrl}/api/docs`);
-  logger.log(`🔧 Admin Panel: ${baseUrl}/admin`);
+  // Admin panel removed
   logger.log(`💚 Health Check: ${baseUrl}/api/v1/health`);
   logger.log(`🔐 Authentication Base: ${baseUrl}/api/v1/auth`);
 

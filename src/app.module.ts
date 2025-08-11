@@ -9,7 +9,7 @@ import { ServicesModule } from './services/services.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ProvidersModule } from './providers/providers.module';
-import { AdminWorkingModule } from './admin/admin-working.module';
+import { AdminDashboardModule } from './admin/admin-dashboard.module';
 import { ConfigModule as SessionConfigModule } from './config/config.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -26,8 +26,6 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 })
 export class AppModule {
   static async forRootAsync(): Promise<DynamicModule> {
-    const adminModule = AdminWorkingModule.forRoot();
-
     return {
       module: AppModule,
       imports: [
@@ -46,7 +44,7 @@ export class AppModule {
         WalletModule,
         ProvidersModule,
         SessionConfigModule,
-        adminModule,
+        AdminDashboardModule,
       ],
     };
   }

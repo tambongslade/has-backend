@@ -20,10 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@adminjs/express": "^6.1.1",
-    "@adminjs/mongoose": "^4.1.0",
-    "@adminjs/nestjs": "^6.1.0",
-    "@adminjs/upload": "^4.0.2",
+    
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -32,8 +29,9 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.0",
+    "@tailwindcss/vite": "^4.1.11",
     "@types/express-session": "^1.18.2",
-    "adminjs": "^7.8.17",
+    
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -46,6 +44,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
+    "tailwindcss": "^4.1.11",
     "winston": "^3.17.0"
   },
   "devDependencies": {

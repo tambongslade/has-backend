@@ -5,7 +5,9 @@
       "WebFetch(domain:documentation.fapshi.com)",
       "Bash(npm run lint:*)",
       "Bash(curl:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(pkill:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

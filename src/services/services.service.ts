@@ -180,6 +180,26 @@ export class ServicesService {
     return Object.values(ServiceCategory);
   }
 
+  async getCategoriesFr(): Promise<string[]> {
+    const frenchCategoryMap: Record<ServiceCategory, string> = {
+      [ServiceCategory.CLEANING]: 'nettoyage',
+      [ServiceCategory.PLUMBING]: 'plomberie',
+      [ServiceCategory.ELECTRICAL]: 'électricité',
+      [ServiceCategory.PAINTING]: 'peinture',
+      [ServiceCategory.GARDENING]: 'jardinage',
+      [ServiceCategory.CARPENTRY]: 'menuiserie',
+      [ServiceCategory.COOKING]: 'cuisine',
+      [ServiceCategory.TUTORING]: 'tutorat',
+      [ServiceCategory.BEAUTY]: 'beauté',
+      [ServiceCategory.MAINTENANCE]: 'entretien',
+      [ServiceCategory.OTHER]: 'autre',
+    };
+
+    return Object.values(ServiceCategory).map(
+      (categoryKey) => frenchCategoryMap[categoryKey as ServiceCategory],
+    );
+  }
+
   async updateRating(
     serviceId: string,
     newRating: number,
