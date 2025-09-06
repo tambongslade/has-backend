@@ -2,10 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
-  Booking,
-  BookingDocument,
-  BookingStatus,
-} from '../../bookings/schemas/booking.schema';
+  Session,
+  SessionDocument,
+  SessionStatus,
+} from '../../bookings/schemas/session.schema';
 import { User, UserDocument } from '../../users/schemas/user.schema';
 import { Wallet, WalletDocument } from '../../wallet/schemas/wallet.schema';
 import {
@@ -24,7 +24,7 @@ import {
 @Injectable()
 export class ProviderDashboardService {
   constructor(
-    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
     @InjectModel(Transaction.name)
@@ -62,12 +62,12 @@ export class ProviderDashboardService {
 
     const wallet = await this.walletModel.findOne({ providerId }).exec();
 
-    // Calculate average rating from completed bookings
-    const ratingStats = await this.bookingModel.aggregate([
+    // Calculate average rating from completed sessions
+    const ratingStats = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           seekerRating: { $exists: true, $ne: null },
         },
       },
@@ -121,44 +121,44 @@ export class ProviderDashboardService {
     const endOfLastWeek = new Date(startOfWeek);
     endOfLastWeek.setTime(endOfLastWeek.getTime() - 1);
 
-    // Get booking statistics
+    // Get session statistics
     const [
-      totalBookings,
-      thisWeekBookings,
-      thisMonthBookings,
-      lastWeekBookings,
+      totalSessions,
+      thisWeekSessions,
+      thisMonthSessions,
+      lastWeekSessions,
       lastMonthEarnings,
       thisMonthEarnings,
       statusCounts,
       activeServices,
     ] = await Promise.all([
-      // Total bookings
-      this.bookingModel.countDocuments({ providerId }),
+      // Total sessions
+      this.sessionModel.countDocuments({ providerId }),
 
-      // This week bookings
-      this.bookingModel.countDocuments({
+      // This week sessions
+      this.sessionModel.countDocuments({
         providerId,
         createdAt: { $gte: startOfWeek },
       }),
 
-      // This month bookings
-      this.bookingModel.countDocuments({
+      // This month sessions
+      this.sessionModel.countDocuments({
         providerId,
         createdAt: { $gte: startOfMonth },
       }),
 
-      // Last week bookings for growth calculation
-      this.bookingModel.countDocuments({
+      // Last week sessions for growth calculation
+      this.sessionModel.countDocuments({
         providerId,
         createdAt: { $gte: startOfLastWeek, $lte: endOfLastWeek },
       }),
 
       // Last month earnings for growth calculation
-      this.bookingModel.aggregate([
+      this.sessionModel.aggregate([
         {
           $match: {
             providerId,
-            status: BookingStatus.COMPLETED,
+            status: SessionStatus.COMPLETED,
             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
           },
         },
@@ -171,11 +171,11 @@ export class ProviderDashboardService {
       ]),
 
       // This month earnings
-      this.bookingModel.aggregate([
+      this.sessionModel.aggregate([
         {
           $match: {
             providerId,
-            status: BookingStatus.COMPLETED,
+            status: SessionStatus.COMPLETED,
             createdAt: { $gte: startOfMonth },
           },
         },
@@ -187,8 +187,8 @@ export class ProviderDashboardService {
         },
       ]),
 
-      // Booking status counts
-      this.bookingModel.aggregate([
+      // Session status counts
+      this.sessionModel.aggregate([
         { $match: { providerId } },
         {
           $group: {
@@ -199,8 +199,8 @@ export class ProviderDashboardService {
       ]),
 
       // Active services count (assuming we have a services collection)
-      // For now, we'll estimate based on unique service IDs in bookings
-      this.bookingModel.distinct('serviceId', { providerId }),
+      // For now, we'll estimate based on unique service IDs in sessions
+      this.sessionModel.distinct('serviceId', { providerId }),
     ]);
 
     // Process status counts
@@ -224,23 +224,23 @@ export class ProviderDashboardService {
           ? 100
           : 0;
 
-    const weeklyBookingsGrowth =
-      lastWeekBookings > 0
-        ? ((thisWeekBookings - lastWeekBookings) / lastWeekBookings) * 100
-        : thisWeekBookings > 0
+    const weeklySessionsGrowth =
+      lastWeekSessions > 0
+        ? ((thisWeekSessions - lastWeekSessions) / lastWeekSessions) * 100
+        : thisWeekSessions > 0
           ? 100
           : 0;
 
     return {
       activeServices: activeServices.length,
-      totalBookings,
-      thisWeekBookings,
-      thisMonthBookings,
-      completedBookings: statusMap[BookingStatus.COMPLETED] || 0,
-      cancelledBookings: statusMap[BookingStatus.CANCELLED] || 0,
-      pendingBookings: statusMap[BookingStatus.PENDING] || 0,
+      totalBookings: totalSessions,
+      thisWeekBookings: thisWeekSessions,
+      thisMonthBookings: thisMonthSessions,
+      completedBookings: statusMap[SessionStatus.COMPLETED] || 0,
+      cancelledBookings: statusMap[SessionStatus.CANCELLED] || 0,
+      pendingBookings: statusMap[SessionStatus.PENDING_ASSIGNMENT] || 0,
       monthlyEarningsGrowth: Math.round(monthlyEarningsGrowth * 10) / 10,
-      weeklyBookingsGrowth: Math.round(weeklyBookingsGrowth * 10) / 10,
+      weeklyBookingsGrowth: Math.round(weeklySessionsGrowth * 10) / 10,
     };
   }
 
@@ -249,34 +249,34 @@ export class ProviderDashboardService {
   ): Promise<NextBookingDto | undefined> {
     const now = new Date();
 
-    const nextBooking = await this.bookingModel
+    const nextSession = await this.sessionModel
       .findOne({
         providerId,
-        status: { $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
-        bookingDate: { $gte: now },
+        status: { $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT] },
+        sessionDate: { $gte: now },
       })
       .populate('seekerId', 'fullName')
       .populate('serviceId', 'title')
-      .sort({ bookingDate: 1, startTime: 1 })
+      .sort({ sessionDate: 1, startTime: 1 })
       .exec();
 
-    if (!nextBooking) {
+    if (!nextSession) {
       return undefined;
     }
 
     return {
-      _id: (nextBooking._id as any).toString(),
+      _id: (nextSession._id as any).toString(),
       serviceTitle:
-        (nextBooking.serviceId as any)?.title ||
-        nextBooking.serviceName ||
+        (nextSession.serviceId as any)?.title ||
+        nextSession.serviceName ||
         'Unknown Service',
-      seekerName: (nextBooking.seekerId as any)?.fullName || 'Unknown Seeker',
-      bookingDate: nextBooking.bookingDate,
-      startTime: nextBooking.startTime,
-      endTime: nextBooking.endTime,
-      totalAmount: nextBooking.totalAmount,
-      status: nextBooking.status,
-      serviceLocation: nextBooking.serviceLocation,
+      seekerName: (nextSession.seekerId as any)?.fullName || 'Unknown Seeker',
+      bookingDate: nextSession.sessionDate,
+      startTime: nextSession.startTime,
+      endTime: nextSession.endTime,
+      totalAmount: nextSession.totalAmount,
+      status: nextSession.status,
+      serviceLocation: nextSession.serviceLocation,
     };
   }
 
@@ -285,11 +285,11 @@ export class ProviderDashboardService {
   ): Promise<ActivityDto[]> {
     const activities: ActivityDto[] = [];
 
-    // Get recent completed bookings
-    const recentBookings = await this.bookingModel
+    // Get recent completed sessions
+    const recentSessions = await this.sessionModel
       .find({
         providerId,
-        status: BookingStatus.COMPLETED,
+        status: SessionStatus.COMPLETED,
         updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
       })
       .populate('seekerId', 'fullName')
@@ -298,18 +298,18 @@ export class ProviderDashboardService {
       .limit(5)
       .exec();
 
-    recentBookings.forEach((booking) => {
+    recentSessions.forEach((session) => {
       activities.push({
         type: 'booking_completed',
         title: 'Service completed',
-        description: `${(booking.serviceId as any)?.title || booking.serviceName} for ${(booking.seekerId as any)?.fullName}`,
-        amount: booking.totalAmount,
-        timestamp: (booking as any).updatedAt || (booking as any).createdAt,
+        description: `${(session.serviceId as any)?.title || session.serviceName} for ${(session.seekerId as any)?.fullName}`,
+        amount: session.totalAmount,
+        timestamp: (session as any).updatedAt || (session as any).createdAt,
       });
     });
 
     // Get recent reviews
-    const recentReviews = await this.bookingModel
+    const recentReviews = await this.sessionModel
       .find({
         providerId,
         seekerRating: { $exists: true, $ne: null },
@@ -320,13 +320,13 @@ export class ProviderDashboardService {
       .limit(3)
       .exec();
 
-    recentReviews.forEach((booking) => {
+    recentReviews.forEach((session) => {
       activities.push({
         type: 'review_received',
         title: 'New review received',
-        description: `${booking.seekerRating}-star review from ${(booking.seekerId as any)?.fullName}`,
-        rating: booking.seekerRating,
-        timestamp: (booking as any).updatedAt || (booking as any).createdAt,
+        description: `${session.seekerRating}-star review from ${(session.seekerId as any)?.fullName}`,
+        rating: session.seekerRating,
+        timestamp: (session as any).updatedAt || (session as any).createdAt,
       });
     });
 

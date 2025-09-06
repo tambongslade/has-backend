@@ -19,7 +19,7 @@ export class SessionResponseDto {
     example: '507f1f77bcf86cd799439013',
     description: 'Provider user ID',
   })
-  providerId: string;
+  providerId?: string;
 
   @ApiProperty({
     example: '507f1f77bcf86cd799439014',
@@ -96,7 +96,7 @@ export class SessionResponseDto {
 
   @ApiProperty({
     enum: SessionStatus,
-    example: SessionStatus.PENDING,
+    example: SessionStatus.PENDING_ASSIGNMENT,
     description: 'Session status',
   })
   status: SessionStatus;

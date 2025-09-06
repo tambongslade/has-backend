@@ -10,11 +10,11 @@ import {
   PaymentType,
 } from './schemas/payment.schema';
 import {
-  Booking,
-  BookingStatus,
-  PaymentStatus as BookingPaymentStatus,
-} from '../bookings/schemas/booking.schema';
-import { CreatePaymentDto } from './dto/create-payment.dto';
+  Session,
+  SessionStatus,
+  PaymentStatus as SessionPaymentStatus,
+} from '../bookings/schemas/session.schema';
+import { CreatePaymentDto, PaymentStatusDto } from './dto/create-payment.dto';
 import {
   NotFoundException,
   BadRequestException,
@@ -24,24 +24,24 @@ import {
 describe('PaymentService', () => {
   let service: PaymentService;
   let mockPaymentModel: any;
-  let mockBookingModel: any;
+  let mockSessionModel: any;
   let mockConfigService: any;
   let mockWalletService: any;
 
-  const mockBooking = {
-    _id: 'bookingId123',
+  const mockSession = {
+    _id: 'sessionId123',
     seekerId: 'seekerId123',
     providerId: 'providerId123',
     totalAmount: 25000,
-    paymentStatus: BookingPaymentStatus.PENDING,
-    status: BookingStatus.CONFIRMED,
+    paymentStatus: SessionPaymentStatus.PENDING,
+    status: SessionStatus.CONFIRMED,
   };
 
   const mockPayment = {
     _id: 'paymentId123',
     payerId: 'seekerId123',
     receiverId: 'providerId123',
-    bookingId: 'bookingId123',
+    sessionId: 'sessionId123',
     amount: 25000,
     provider: PaymentProvider.MTN_MONEY,
     status: PaymentStatus.PENDING,
@@ -64,7 +64,7 @@ describe('PaymentService', () => {
       exec: jest.fn(),
     };
 
-    const mockBookingModelValue = {
+    const mockSessionModelValue = {
       findById: jest.fn(),
       findByIdAndUpdate: jest.fn(),
     };
@@ -105,8 +105,8 @@ describe('PaymentService', () => {
           },
         },
         {
-          provide: getModelToken(Booking.name),
-          useValue: mockBookingModelValue,
+          provide: getModelToken(Session.name),
+          useValue: mockSessionModelValue,
         },
         {
           provide: ConfigService,
@@ -121,12 +121,12 @@ describe('PaymentService', () => {
 
     service = module.get<PaymentService>(PaymentService);
     mockPaymentModel = module.get(getModelToken(Payment.name));
-    mockBookingModel = module.get(getModelToken(Booking.name));
+    mockSessionModel = module.get(getModelToken(Session.name));
   });
 
   describe('initiatePayment', () => {
     const createPaymentDto: CreatePaymentDto = {
-      bookingId: 'bookingId123',
+      sessionId: 'sessionId123',
       amount: 25000,
       provider: PaymentProvider.MTN_MONEY,
       phoneNumber: '+237670123456',
@@ -135,7 +135,7 @@ describe('PaymentService', () => {
     };
 
     it('should successfully initiate MTN payment', async () => {
-      mockBookingModel.findById.mockResolvedValue(mockBooking);
+      mockSessionModel.findById.mockResolvedValue(mockSession);
       mockPaymentModel.findOne.mockResolvedValue(null); // No existing payment
 
       // Mock MTN API calls
@@ -165,7 +165,7 @@ describe('PaymentService', () => {
         provider: PaymentProvider.ORANGE_MONEY,
       };
 
-      mockBookingModel.findById.mockResolvedValue(mockBooking);
+      mockSessionModel.findById.mockResolvedValue(mockSession);
       mockPaymentModel.findOne.mockResolvedValue(null);
 
       // Mock Orange API calls
@@ -188,8 +188,8 @@ describe('PaymentService', () => {
       expect(result.message).toContain('Orange Money payment initiated');
     });
 
-    it('should throw NotFoundException when booking does not exist', async () => {
-      mockBookingModel.findById.mockResolvedValue(null);
+    it('should throw NotFoundException when session does not exist', async () => {
+      mockSessionModel.findById.mockResolvedValue(null);
 
       await expect(
         service.initiatePayment(createPaymentDto, 'seekerId123'),
@@ -197,28 +197,28 @@ describe('PaymentService', () => {
     });
 
     it('should throw BadRequestException when user is not the seeker', async () => {
-      mockBookingModel.findById.mockResolvedValue(mockBooking);
+      mockSessionModel.findById.mockResolvedValue(mockSession);
 
       await expect(
         service.initiatePayment(createPaymentDto, 'wrongUserId'),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw ConflictException when booking is already paid', async () => {
-      const paidBooking = {
-        ...mockBooking,
-        paymentStatus: BookingPaymentStatus.PAID,
+    it('should throw ConflictException when session is already paid', async () => {
+      const paidSession = {
+        ...mockSession,
+        paymentStatus: SessionPaymentStatus.PAID,
       };
-      mockBookingModel.findById.mockResolvedValue(paidBooking);
+      mockSessionModel.findById.mockResolvedValue(paidSession);
 
       await expect(
         service.initiatePayment(createPaymentDto, 'seekerId123'),
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should throw BadRequestException when payment amount does not match booking amount', async () => {
+    it('should throw BadRequestException when payment amount does not match session amount', async () => {
       const wrongAmountDto = { ...createPaymentDto, amount: 30000 };
-      mockBookingModel.findById.mockResolvedValue(mockBooking);
+      mockSessionModel.findById.mockResolvedValue(mockSession);
 
       await expect(
         service.initiatePayment(wrongAmountDto, 'seekerId123'),
@@ -226,7 +226,7 @@ describe('PaymentService', () => {
     });
 
     it('should throw ConflictException when payment is already in progress', async () => {
-      mockBookingModel.findById.mockResolvedValue(mockBooking);
+      mockSessionModel.findById.mockResolvedValue(mockSession);
       mockPaymentModel.findOne.mockResolvedValue(mockPayment); // Existing payment
 
       await expect(
@@ -239,7 +239,7 @@ describe('PaymentService', () => {
     it('should return payment status', async () => {
       const paymentWithBooking = {
         ...mockPayment,
-        bookingId: { toString: () => 'bookingId123' },
+        sessionId: { toString: () => 'sessionId123' },
       };
 
       mockPaymentModel.findOne.mockReturnValue({
@@ -255,7 +255,7 @@ describe('PaymentService', () => {
       expect(result).toHaveProperty('status', PaymentStatus.PENDING);
       expect(result).toHaveProperty('amount', 25000);
       expect(result).toHaveProperty('provider', PaymentProvider.MTN_MONEY);
-      expect(result).toHaveProperty('bookingId', 'bookingId123');
+      expect(result).toHaveProperty('sessionId', 'sessionId123');
     });
 
     it('should throw NotFoundException when payment does not exist', async () => {
@@ -283,14 +283,14 @@ describe('PaymentService', () => {
       };
 
       mockPaymentModel.findOne.mockResolvedValue(mockPaymentDoc);
-      mockBookingModel.findByIdAndUpdate.mockResolvedValue(mockBooking);
+      mockSessionModel.findByIdAndUpdate.mockResolvedValue(mockSession);
 
       await service.handleWebhook(PaymentProvider.MTN_MONEY, webhookPayload);
 
       expect(mockPaymentDoc.save).toHaveBeenCalled();
-      expect(mockBookingModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        mockPayment.bookingId,
-        { paymentStatus: BookingPaymentStatus.PAID },
+      expect(mockSessionModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        mockPayment.sessionId,
+        { paymentStatus: SessionPaymentStatus.PAID },
       );
     });
 
@@ -328,14 +328,14 @@ describe('PaymentService', () => {
       };
 
       mockPaymentModel.findOne.mockResolvedValue(mockPaymentDoc);
-      mockBookingModel.findByIdAndUpdate.mockResolvedValue(mockBooking);
+      mockSessionModel.findByIdAndUpdate.mockResolvedValue(mockSession);
 
       await service.handleWebhook(PaymentProvider.ORANGE_MONEY, webhookPayload);
 
       expect(mockPaymentDoc.save).toHaveBeenCalled();
-      expect(mockBookingModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        mockPayment.bookingId,
-        { paymentStatus: BookingPaymentStatus.PAID },
+      expect(mockSessionModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        mockPayment.sessionId,
+        { paymentStatus: SessionPaymentStatus.PAID },
       );
     });
 
@@ -442,7 +442,7 @@ describe('PaymentService', () => {
         status: PaymentStatus.CANCELLED,
         amount: 25000,
         provider: PaymentProvider.MTN_MONEY,
-        bookingId: 'bookingId123',
+        sessionId: 'sessionId123',
         message: 'Payment was cancelled',
       });
 

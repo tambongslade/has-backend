@@ -18,8 +18,8 @@ import {
   PaymentStatus,
   PaymentType,
 } from './schemas/payment.schema';
-import { Booking, BookingDocument } from '../bookings/schemas/booking.schema';
-import { PaymentStatus as BookingPaymentStatus } from '../bookings/schemas/booking.schema';
+import { Session, SessionDocument } from '../bookings/schemas/session.schema';
+import { PaymentStatus as SessionPaymentStatus } from '../bookings/schemas/session.schema';
 import {
   CreatePaymentDto,
   PaymentResponseDto,
@@ -59,7 +59,7 @@ export class PaymentService {
 
   constructor(
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
-    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     private configService: ConfigService,
     private walletService: WalletService,
   ) {}
@@ -68,37 +68,37 @@ export class PaymentService {
     createPaymentDto: CreatePaymentDto,
     payerId: string,
   ): Promise<PaymentResponseDto> {
-    // Validate booking exists and belongs to payer
-    const booking = await this.bookingModel.findById(
-      createPaymentDto.bookingId,
+    // Validate session exists and belongs to payer
+    const session = await this.sessionModel.findById(
+      createPaymentDto.sessionId,
     );
-    if (!booking) {
-      throw new NotFoundException('Booking not found');
+    if (!session) {
+      throw new NotFoundException('Session not found');
     }
 
-    if (booking.seekerId.toString() !== payerId) {
-      throw new BadRequestException('You can only pay for your own bookings');
+    if (session.seekerId.toString() !== payerId) {
+      throw new BadRequestException('You can only pay for your own sessions');
     }
 
-    if (booking.paymentStatus === BookingPaymentStatus.PAID) {
-      throw new ConflictException('Booking is already paid');
+    if (session.paymentStatus === SessionPaymentStatus.PAID) {
+      throw new ConflictException('Session is already paid');
     }
 
-    if (booking.totalAmount !== createPaymentDto.amount) {
+    if (session.totalAmount !== createPaymentDto.amount) {
       throw new BadRequestException(
-        'Payment amount does not match booking amount',
+        'Payment amount does not match session amount',
       );
     }
 
     // Check for existing pending payment
     const existingPayment = await this.paymentModel.findOne({
-      bookingId: createPaymentDto.bookingId,
+      sessionId: createPaymentDto.sessionId,
       status: { $in: [PaymentStatus.PENDING, PaymentStatus.PROCESSING] },
     });
 
     if (existingPayment) {
       throw new ConflictException(
-        'A payment is already in progress for this booking',
+        'A payment is already in progress for this session',
       );
     }
 
@@ -106,8 +106,8 @@ export class PaymentService {
     const paymentReference = this.generatePaymentReference();
     const payment = new this.paymentModel({
       payerId: new Types.ObjectId(payerId),
-      receiverId: booking.providerId,
-      bookingId: createPaymentDto.bookingId,
+      receiverId: session.providerId,
+      sessionId: createPaymentDto.sessionId,
       amount: createPaymentDto.amount,
       provider: createPaymentDto.provider,
       paymentType: createPaymentDto.paymentType || PaymentType.BOOKING_PAYMENT,
@@ -118,7 +118,7 @@ export class PaymentService {
       },
       paymentReference,
       description:
-        createPaymentDto.description || `Payment for booking ${booking._id}`,
+        createPaymentDto.description || `Payment for session ${session._id}`,
       expiredAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes expiry
     });
 
@@ -205,7 +205,7 @@ export class PaymentService {
         partyIdType: 'MSISDN',
         partyId: payment.paymentDetails.phoneNumber.replace('+237', '237'),
       },
-      payerMessage: `Payment for HAS booking ${payment.bookingId}`,
+      payerMessage: `Payment for HAS session ${payment.sessionId}`,
       payeeNote: payment.description || 'HAS Service Payment',
       callbackUrl: `${this.configService.get<string>('BASE_URL')}/api/v1/payments/webhook/mtn`,
     };
@@ -337,7 +337,7 @@ export class PaymentService {
   async getPaymentStatus(paymentReference: string): Promise<PaymentStatusDto> {
     const payment = await this.paymentModel
       .findOne({ paymentReference })
-      .populate('bookingId');
+      .populate('sessionId');
 
     if (!payment) {
       throw new NotFoundException('Payment not found');
@@ -348,7 +348,7 @@ export class PaymentService {
       status: payment.status,
       amount: payment.amount,
       provider: payment.provider,
-      bookingId: payment.bookingId.toString(),
+      sessionId: payment.sessionId.toString(),
       message: this.getStatusMessage(payment.status),
       processedAt: payment.processedAt,
     };
@@ -453,9 +453,9 @@ export class PaymentService {
     if (status === PaymentStatus.SUCCESSFUL) {
       payment.processedAt = new Date();
 
-      // Update booking payment status
-      await this.bookingModel.findByIdAndUpdate(payment.bookingId, {
-        paymentStatus: BookingPaymentStatus.PAID,
+      // Update session payment status
+      await this.sessionModel.findByIdAndUpdate(payment.sessionId, {
+        paymentStatus: SessionPaymentStatus.PAID,
       });
 
       this.logger.log(
@@ -488,7 +488,7 @@ export class PaymentService {
     const [payments, total] = await Promise.all([
       this.paymentModel
         .find(query)
-        .populate('bookingId', 'bookingDate startTime endTime totalAmount')
+        .populate('sessionId', 'sessionDate startTime endTime totalAmount')
         .populate('receiverId', 'fullName')
         .sort({ createdAt: -1 })
         .skip(skip)

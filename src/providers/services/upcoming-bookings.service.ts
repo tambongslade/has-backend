@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
-  Booking,
-  BookingDocument,
-  BookingStatus,
-} from '../../bookings/schemas/booking.schema';
+  Session,
+  SessionDocument,
+  SessionStatus,
+} from '../../bookings/schemas/session.schema';
 import {
   Service,
   ServiceDocument,
@@ -23,7 +23,7 @@ import {
 @Injectable()
 export class UpcomingBookingsService {
   constructor(
-    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
@@ -40,16 +40,16 @@ export class UpcomingBookingsService {
     lookAheadDate.setDate(now.getDate() + days);
     lookAheadDate.setHours(23, 59, 59, 999);
 
-    // Get upcoming bookings with related data
-    const upcomingBookings = await this.bookingModel
+    // Get upcoming sessions with related data
+    const upcomingBookings = await this.sessionModel
       .find({
         providerId: providerObjectId,
-        status: { $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
-        bookingDate: { $gte: now, $lte: lookAheadDate },
+        status: { $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT] },
+        sessionDate: { $gte: now, $lte: lookAheadDate },
       })
       .populate('serviceId', 'title category')
       .populate('seekerId', 'fullName phoneNumber')
-      .sort({ bookingDate: 1, startTime: 1 })
+      .sort({ sessionDate: 1, startTime: 1 })
       .limit(limit)
       .exec();
 
@@ -76,12 +76,12 @@ export class UpcomingBookingsService {
     startDate: Date,
     endDate: Date,
   ): Promise<BookingSummary> {
-    const summaryData = await this.bookingModel.aggregate([
+    const summaryData = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: { $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
-          bookingDate: { $gte: startDate, $lte: endDate },
+          status: { $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT] },
+          sessionDate: { $gte: startDate, $lte: endDate },
         },
       },
       {
@@ -89,7 +89,7 @@ export class UpcomingBookingsService {
           _id: null,
           totalUpcoming: { $sum: 1 },
           totalEarningsExpected: { $sum: '$totalAmount' },
-          nextBooking: { $min: '$bookingDate' },
+          nextBooking: { $min: '$sessionDate' },
         },
       },
     ]);
@@ -114,44 +114,44 @@ export class UpcomingBookingsService {
   }
 
   private async mapToUpcomingBooking(
-    booking: BookingDocument,
+    session: SessionDocument,
   ): Promise<UpcomingBooking> {
     // Calculate duration in hours
-    const duration = this.calculateDuration(booking.startTime, booking.endTime);
+    const duration = this.calculateDuration(session.startTime, session.endTime);
 
     // Calculate time until booking
     const timeUntilBooking = this.calculateTimeUntilBooking(
-      booking.bookingDate,
-      booking.startTime,
+      session.sessionDate,
+      session.startTime,
     );
 
     // Extract service information
     const serviceInfo: ServiceInfo = {
       title:
-        (booking.serviceId as any)?.title ||
-        booking.serviceName ||
+        (session.serviceId as any)?.title ||
+        session.serviceName ||
         'Unknown Service',
-      category: (booking.serviceId as any)?.category || 'other',
+      category: (session.serviceId as any)?.category || session.category || 'other',
     };
 
     // Extract seeker information
     const seekerInfo: SeekerInfo = {
-      fullName: (booking.seekerId as any)?.fullName || 'Unknown User',
-      phoneNumber: (booking.seekerId as any)?.phoneNumber || 'N/A',
+      fullName: (session.seekerId as any)?.fullName || 'Unknown User',
+      phoneNumber: (session.seekerId as any)?.phoneNumber || 'N/A',
     };
 
     return {
-      _id: (booking._id as any).toString(),
+      _id: (session._id as any).toString(),
       service: serviceInfo,
       seeker: seekerInfo,
-      bookingDate: booking.bookingDate.toISOString(),
-      startTime: booking.startTime,
-      endTime: booking.endTime,
+      bookingDate: session.sessionDate.toISOString(),
+      startTime: session.startTime,
+      endTime: session.endTime,
       duration,
-      totalAmount: booking.totalAmount,
-      status: booking.status,
-      serviceLocation: booking.serviceLocation,
-      specialInstructions: booking.specialInstructions,
+      totalAmount: session.totalAmount,
+      status: session.status,
+      serviceLocation: session.serviceLocation,
+      specialInstructions: session.notes,
       timeUntilBooking,
     };
   }
@@ -212,22 +212,22 @@ export class UpcomingBookingsService {
     bookingId: string,
   ): Promise<UpcomingBooking> {
     const providerObjectId = new Types.ObjectId(providerId);
-    const bookingObjectId = new Types.ObjectId(bookingId);
+    const sessionObjectId = new Types.ObjectId(bookingId);
 
-    const booking = await this.bookingModel
+    const session = await this.sessionModel
       .findOne({
-        _id: bookingObjectId,
+        _id: sessionObjectId,
         providerId: providerObjectId,
       })
       .populate('serviceId', 'title category')
       .populate('seekerId', 'fullName phoneNumber')
       .exec();
 
-    if (!booking) {
-      throw new Error('Booking not found');
+    if (!session) {
+      throw new Error('Session not found');
     }
 
-    return this.mapToUpcomingBooking(booking);
+    return this.mapToUpcomingBooking(session);
   }
 
   async getBookingsForDate(
@@ -243,15 +243,15 @@ export class UpcomingBookingsService {
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const bookings = await this.bookingModel
+    const sessions = await this.sessionModel
       .find({
         providerId: providerObjectId,
-        bookingDate: { $gte: startOfDay, $lte: endOfDay },
+        sessionDate: { $gte: startOfDay, $lte: endOfDay },
         status: {
           $in: [
-            BookingStatus.CONFIRMED,
-            BookingStatus.PENDING,
-            BookingStatus.IN_PROGRESS,
+            SessionStatus.CONFIRMED,
+            SessionStatus.PENDING_ASSIGNMENT,
+            SessionStatus.IN_PROGRESS,
           ],
         },
       })
@@ -261,7 +261,7 @@ export class UpcomingBookingsService {
       .exec();
 
     return Promise.all(
-      bookings.map((booking) => this.mapToUpcomingBooking(booking)),
+      sessions.map((session) => this.mapToUpcomingBooking(session)),
     );
   }
 }

@@ -8,6 +8,8 @@ import { AdminAuthController } from './admin-auth.controller';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminSeederService } from './admin-seeder.service';
 import { AdminGuard } from './guards/admin.guard';
+import { AdminAssignmentController } from './admin-assignment.controller';
+import { AdminAssignmentService } from './admin-assignment.service';
 
 // Import schemas
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -18,6 +20,7 @@ import { Transaction, TransactionSchema } from '../wallet/schemas/transaction.sc
 import { ProviderReview, ProviderReviewSchema } from '../users/schemas/provider-review.schema';
 import { Availability, AvailabilitySchema } from '../bookings/schemas/availability.schema';
 import { Admin, AdminSchema } from './schemas/admin.schema';
+import { BookingsModule } from '../bookings/bookings.module';
 
 @Module({
   imports: [
@@ -39,9 +42,10 @@ import { Admin, AdminSchema } from './schemas/admin.schema';
       }),
       inject: [ConfigService],
     }),
+    BookingsModule,
   ],
-  controllers: [AdminController, AdminAuthController],
-  providers: [AdminService, AdminAuthService, AdminSeederService, AdminGuard],
+  controllers: [AdminController, AdminAuthController, AdminAssignmentController],
+  providers: [AdminService, AdminAuthService, AdminSeederService, AdminGuard, AdminAssignmentService],
   exports: [AdminService, AdminAuthService, AdminGuard],
 })
 export class AdminDashboardModule {}

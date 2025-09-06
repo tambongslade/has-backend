@@ -15,11 +15,11 @@ import {
   TransactionStatus,
 } from './schemas/transaction.schema';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
-import { BookingsService } from '../bookings/bookings.service';
+import { SessionsService } from '../bookings/sessions.service';
 import {
-  BookingStatus,
+  SessionStatus,
   PaymentStatus,
-} from '../bookings/schemas/booking.schema';
+} from '../bookings/schemas/session.schema';
 
 @Injectable()
 export class WalletService {
@@ -27,12 +27,12 @@ export class WalletService {
     @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
     @InjectModel(Transaction.name)
     private transactionModel: Model<TransactionDocument>,
-    @Inject(forwardRef(() => BookingsService))
-    private bookingsService: BookingsService,
+    @Inject(forwardRef(() => SessionsService))
+    private sessionsService: SessionsService,
   ) {
     // Set up the circular dependency
     setTimeout(() => {
-      this.bookingsService.setWalletService(this);
+      this.sessionsService.setWalletService(this);
     }, 0);
   }
 
@@ -58,7 +58,7 @@ export class WalletService {
   async getWalletBalance(providerId: string): Promise<WalletDocument> {
     const wallet = await this.getOrCreateWallet(providerId);
 
-    // Update pending balance based on current bookings
+    // Update pending balance based on current sessions
     await this.updatePendingBalance(providerId);
 
     const updatedWallet = await this.walletModel.findOne({
@@ -84,7 +84,7 @@ export class WalletService {
           providerId: new Types.ObjectId(providerId),
           type: { $in: [TransactionType.EARNING, TransactionType.COMMISSION] },
         })
-        .populate('bookingId')
+        .populate('sessionId')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -113,7 +113,7 @@ export class WalletService {
     const [transactions, total] = await Promise.all([
       this.transactionModel
         .find({ providerId: new Types.ObjectId(providerId) })
-        .populate('bookingId')
+        .populate('sessionId')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -165,15 +165,15 @@ export class WalletService {
 
   async processEarning(
     providerId: string,
-    bookingId: string,
+    sessionId: string,
     amount: number,
   ): Promise<void> {
     const wallet = await this.getOrCreateWallet(providerId);
 
-    // Check if earning already processed for this booking
+    // Check if earning already processed for this session
     const existingTransaction = await this.transactionModel.findOne({
       providerId: new Types.ObjectId(providerId),
-      bookingId: new Types.ObjectId(bookingId),
+      sessionId: new Types.ObjectId(sessionId),
       type: TransactionType.EARNING,
     });
 
@@ -192,8 +192,8 @@ export class WalletService {
       type: TransactionType.EARNING,
       amount: providerEarning,
       status: TransactionStatus.COMPLETED,
-      description: 'Earning from completed booking',
-      bookingId: new Types.ObjectId(bookingId),
+      description: 'Earning from completed session',
+      sessionId: new Types.ObjectId(sessionId),
       processedAt: new Date(),
     });
 
@@ -206,7 +206,7 @@ export class WalletService {
       amount: -commission, // Negative amount to show deduction
       status: TransactionStatus.COMPLETED,
       description: 'Platform commission (10%)',
-      bookingId: new Types.ObjectId(bookingId),
+      sessionId: new Types.ObjectId(sessionId),
       processedAt: new Date(),
     });
 
@@ -225,15 +225,21 @@ export class WalletService {
   }
 
   private async updatePendingBalance(providerId: string): Promise<void> {
-    // Get all confirmed bookings that are paid but not yet completed
-    const pendingBookings = await this.bookingsService.findAll({
-      providerId: new Types.ObjectId(providerId),
-      status: { $in: [BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
-      paymentStatus: PaymentStatus.PAID,
-    });
+    // Get all confirmed sessions that are paid but not yet completed
+    const pendingSessions = await this.sessionsService.findByProvider(
+      providerId,
+      undefined,
+      0,
+      1000, // Large limit to get all sessions
+    );
 
-    const pendingAmount = pendingBookings.reduce(
-      (total, booking) => total + booking.totalAmount,
+    const confirmedSessions = pendingSessions.sessions.filter(
+      session => session.status === SessionStatus.CONFIRMED || 
+                 session.status === SessionStatus.IN_PROGRESS
+    );
+
+    const pendingAmount = confirmedSessions.reduce(
+      (total, session) => total + session.totalAmount,
       0,
     );
 

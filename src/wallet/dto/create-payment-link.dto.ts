@@ -10,11 +10,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePaymentLinkDto {
   @ApiProperty({
-    description: 'Booking ID to create payment for',
+    description: 'Session ID to create payment for',
     example: '507f1f77bcf86cd799439011',
   })
   @IsString()
-  bookingId: string;
+  sessionId: string;
 
   @ApiPropertyOptional({
     description: 'Custom redirect URL after payment completion',

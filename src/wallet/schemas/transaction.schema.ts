@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
-import { Booking } from '../../bookings/schemas/booking.schema';
+import { Session } from '../../bookings/schemas/session.schema';
 
 export type TransactionDocument = Transaction & Document;
 
@@ -55,8 +55,8 @@ export class Transaction {
   @Prop()
   description?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Booking' })
-  bookingId?: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Session' })
+  sessionId?: Types.ObjectId;
 
   @Prop({
     type: String,

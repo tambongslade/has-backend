@@ -17,7 +17,7 @@ import {
 export interface CreatePaymentData {
   payerId: string;
   receiverId: string;
-  bookingId: string;
+  sessionId: string;
   amount: number;
   currency: string;
   provider: PaymentProvider;
@@ -46,7 +46,7 @@ export class PaymentsService {
     const payment = new this.paymentModel({
       payerId: new Types.ObjectId(createPaymentData.payerId),
       receiverId: new Types.ObjectId(createPaymentData.receiverId),
-      bookingId: new Types.ObjectId(createPaymentData.bookingId),
+      sessionId: new Types.ObjectId(createPaymentData.sessionId),
       amount: createPaymentData.amount,
       currency: createPaymentData.currency,
       provider: createPaymentData.provider,
@@ -72,9 +72,9 @@ export class PaymentsService {
     return this.paymentModel.findOne({ paymentReference }).exec();
   }
 
-  async findByBookingId(bookingId: string): Promise<PaymentDocument | null> {
+  async findBySessionId(sessionId: string): Promise<PaymentDocument | null> {
     return this.paymentModel
-      .findOne({ bookingId: new Types.ObjectId(bookingId) })
+      .findOne({ sessionId: new Types.ObjectId(sessionId) })
       .exec();
   }
 
@@ -197,7 +197,7 @@ export class PaymentsService {
     const [payments, total] = await Promise.all([
       this.paymentModel
         .find(query)
-        .populate('bookingId', 'bookingDate startTime endTime totalAmount')
+        .populate('sessionId', 'sessionDate startTime endTime totalAmount')
         .populate('payerId', 'fullName email')
         .populate('receiverId', 'fullName email')
         .sort({ createdAt: -1 })
@@ -237,7 +237,7 @@ export class PaymentsService {
       .find(query)
       .populate('payerId', 'fullName email')
       .populate('receiverId', 'fullName email')
-      .populate('bookingId', 'bookingDate startTime endTime')
+      .populate('sessionId', 'sessionDate startTime endTime')
       .sort({ processedAt: -1 })
       .exec();
   }

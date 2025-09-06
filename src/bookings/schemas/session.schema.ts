@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { ServiceCategory } from '../../services/schemas/service.schema';
+import { ServiceCategory, CameroonProvince } from '../../services/schemas/service.schema';
 
 export type SessionDocument = Session &
   Document & {
@@ -9,12 +9,13 @@ export type SessionDocument = Session &
   };
 
 export enum SessionStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
+  PENDING_ASSIGNMENT = 'pending_assignment', // Seeker created, waiting for admin assignment
+  ASSIGNED = 'assigned', // Admin assigned provider, waiting for confirmation
+  CONFIRMED = 'confirmed', // Provider confirmed or auto-confirmed by admin
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  REJECTED = 'rejected',
+  REJECTED = 'rejected', // Provider can still reject after assignment
 }
 
 export enum PaymentStatus {
@@ -29,8 +30,8 @@ export class Session {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   seekerId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  providerId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  providerId?: Types.ObjectId; // Now optional - assigned by admin later
 
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
   serviceId: Types.ObjectId;
@@ -75,7 +76,7 @@ export class Session {
   @Prop({
     type: String,
     enum: SessionStatus,
-    default: SessionStatus.PENDING,
+    default: SessionStatus.PENDING_ASSIGNMENT,
   })
   status: SessionStatus;
 
@@ -91,6 +92,37 @@ export class Session {
 
   @Prop()
   cancellationReason?: string;
+
+  // Admin assignment tracking
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  assignedBy?: Types.ObjectId; // Admin who made the assignment
+
+  @Prop()
+  assignedAt?: Date; // When provider was assigned
+
+  @Prop()
+  assignmentNotes?: string; // Admin notes about the assignment
+
+  // Rejection tracking (if admin rejects the request)
+  @Prop()
+  rejectionReason?: string; // Reason for rejection
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  rejectedBy?: Types.ObjectId; // Admin who rejected the request
+
+  @Prop()
+  rejectedAt?: Date; // When request was rejected
+
+  // Location for service (seeker's location)
+  @Prop({
+    type: String,
+    enum: CameroonProvince,
+    required: true,
+  })
+  serviceLocation: CameroonProvince;
+
+  @Prop()
+  serviceAddress?: string; // Specific address within the province
 
   // Review system
   @Prop({ min: 1, max: 5 })

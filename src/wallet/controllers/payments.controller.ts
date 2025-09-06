@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 // Remove unused import - using @Req() instead
 import { FapshiService } from '../services/fapshi.service';
 import { PaymentsService } from '../services/payments.service';
-import { BookingsService } from '../../bookings/bookings.service';
+import { SessionsService } from '../../bookings/sessions.service';
 import {
   CreatePaymentLinkDto,
   PaymentLinkResponseDto,
@@ -38,7 +38,7 @@ export class PaymentsController {
   constructor(
     private readonly fapshiService: FapshiService,
     private readonly paymentsService: PaymentsService,
-    private readonly bookingsService: BookingsService,
+    private readonly sessionsService: SessionsService,
   ) {}
 
   @Post('create-link')
@@ -60,43 +60,43 @@ export class PaymentsController {
     @Req() req: any,
   ): Promise<PaymentLinkResponseDto> {
     try {
-      // Get the booking details
-      const booking = await this.bookingsService.findById(
-        createPaymentLinkDto.bookingId,
+      // Get the session details
+      const session = await this.sessionsService.findOne(
+        createPaymentLinkDto.sessionId,
       );
 
-      if (!booking) {
-        throw new HttpException('Booking not found', HttpStatus.NOT_FOUND);
+      if (!session) {
+        throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
       }
 
-      // Verify user can pay for this booking (seeker or provider)
-      const seekerIdStr = booking.seekerId.toString();
-      const providerIdStr = booking.providerId.toString();
+      // Verify user can pay for this session (seeker or provider)
+      const seekerIdStr = session.seekerId.toString();
+      const providerIdStr = session.providerId?.toString();
       const userIdStr = req.user.id.toString();
 
       if (seekerIdStr !== userIdStr && providerIdStr !== userIdStr) {
         throw new HttpException(
-          'You are not authorized to pay for this booking',
+          'You are not authorized to pay for this session',
           HttpStatus.FORBIDDEN,
         );
       }
 
       // Check if payment already exists and is not failed/expired
-      const existingPayment = await this.paymentsService.findByBookingId(
-        booking.id,
+      const existingPayment = await this.paymentsService.findBySessionId(
+        session.id,
       );
       if (
         existingPayment &&
         ['pending', 'processing', 'successful'].includes(existingPayment.status)
       ) {
         throw new HttpException(
-          'Payment already exists for this booking',
+          'Payment already exists for this session',
           HttpStatus.BAD_REQUEST,
         );
       }
 
       // Validate amount
-      const amount = booking.totalAmount;
+      const amount = session.totalAmount;
       const minAmount = this.fapshiService.getMinimumAmount();
       if (amount < minAmount) {
         throw new HttpException(
@@ -106,14 +106,14 @@ export class PaymentsController {
       }
 
       // Generate external ID
-      const externalId = this.fapshiService.generateExternalId(booking.id);
+      const externalId = this.fapshiService.generateExternalId(session.id);
 
       // Create payment record first
       const paymentReference = `HAS_PAY_${Date.now()}`;
       const payment = await this.paymentsService.create({
         payerId: req.user.id,
-        receiverId: booking.providerId.toString(),
-        bookingId: booking.id,
+        receiverId: session.providerId!.toString(),
+        sessionId: session.id,
         amount: amount,
         currency: this.fapshiService.getCurrency(),
         provider: PaymentProvider.FAPSHI,
@@ -131,13 +131,13 @@ export class PaymentsController {
           webhookUrl: this.fapshiService['webhookUrl'],
         },
         paymentReference,
-        description: `Payment for ${booking.serviceName || 'service'} booking`,
+        description: `Payment for ${session.serviceName || 'service'} session`,
       });
 
       // Create payment link with Fapshi
       const paymentLinkResponse = await this.fapshiService.createPaymentLink({
         amount,
-        description: `Payment for booking ${booking.id}`,
+        description: `Payment for session ${session.id}`,
         externalId,
         redirectUrl: createPaymentLinkDto.redirectUrl,
         customerEmail: createPaymentLinkDto.customerEmail || req.user.email,
@@ -153,7 +153,7 @@ export class PaymentsController {
         apiResponse: paymentLinkResponse,
       });
 
-      this.logger.log(`Payment link created for booking ${booking.id}`, {
+      this.logger.log(`Payment link created for session ${session.id}`, {
         paymentId: paymentLinkResponse.data.paymentId,
         amount,
         externalId,
@@ -169,7 +169,7 @@ export class PaymentsController {
       };
     } catch (error) {
       this.logger.error('Failed to create payment link', {
-        bookingId: createPaymentLinkDto.bookingId,
+        sessionId: createPaymentLinkDto.sessionId,
         userId: req.user.id,
         error: error.message,
       });
@@ -230,10 +230,10 @@ export class PaymentsController {
       if (payment.status !== newStatus) {
         await this.paymentsService.updateStatus(payment.id, newStatus);
 
-        // Update booking status if payment is successful
+        // Update session status if payment is successful
         if (newStatus === PaymentStatus.SUCCESSFUL) {
-          await this.bookingsService.updatePaymentStatus(
-            payment.bookingId.toString(),
+          await this.sessionsService.updatePaymentStatus(
+            payment.sessionId.toString(),
             'paid',
           );
         }
@@ -376,9 +376,9 @@ export class PaymentsController {
 
   private async handleSuccessfulPayment(payment: any) {
     try {
-      // Update booking payment status
-      await this.bookingsService.updatePaymentStatus(
-        payment.bookingId.toString(),
+      // Update session payment status
+      await this.sessionsService.updatePaymentStatus(
+        payment.sessionId.toString(),
         'paid',
       );
 
@@ -405,9 +405,9 @@ export class PaymentsController {
 
   private async handleFailedPayment(payment: any) {
     try {
-      // Update booking status back to pending
-      await this.bookingsService.updatePaymentStatus(
-        payment.bookingId.toString(),
+      // Update session status back to pending
+      await this.sessionsService.updatePaymentStatus(
+        payment.sessionId.toString(),
         'pending',
       );
 

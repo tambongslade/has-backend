@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
-  Booking,
-  BookingDocument,
-  BookingStatus,
-} from '../../bookings/schemas/booking.schema';
+  Session,
+  SessionDocument,
+  SessionStatus,
+} from '../../bookings/schemas/session.schema';
 import {
   Service,
   ServiceDocument,
@@ -25,7 +25,7 @@ import {
 @Injectable()
 export class ProviderAnalyticsService {
   constructor(
-    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
   ) {}
 
@@ -85,7 +85,7 @@ export class ProviderAnalyticsService {
     prevEndDate: Date,
   ): Promise<BookingAnalytics> {
     // Current period bookings
-    const currentPeriod = await this.bookingModel.aggregate([
+    const currentPeriod = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
@@ -101,7 +101,7 @@ export class ProviderAnalyticsService {
     ]);
 
     // Previous period for growth calculation
-    const previousPeriod = await this.bookingModel.countDocuments({
+    const previousPeriod = await this.sessionModel.countDocuments({
       providerId,
       createdAt: { $gte: prevStartDate, $lte: prevEndDate },
     });
@@ -119,9 +119,9 @@ export class ProviderAnalyticsService {
       (sum: number, count: number) => sum + count,
       0,
     );
-    const completed = statusMap[BookingStatus.COMPLETED] || 0;
-    const cancelled = statusMap[BookingStatus.CANCELLED] || 0;
-    const pending = statusMap[BookingStatus.PENDING] || 0;
+    const completed = statusMap[SessionStatus.COMPLETED] || 0;
+    const cancelled = statusMap[SessionStatus.CANCELLED] || 0;
+    const pending = statusMap[SessionStatus.PENDING_ASSIGNMENT] || 0;
 
     // Calculate growth
     const totalNumber = total as number;
@@ -149,11 +149,11 @@ export class ProviderAnalyticsService {
     prevEndDate: Date,
   ): Promise<EarningsAnalytics> {
     // Current period earnings
-    const currentEarnings = await this.bookingModel.aggregate([
+    const currentEarnings = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },
@@ -167,11 +167,11 @@ export class ProviderAnalyticsService {
     ]);
 
     // Previous period earnings
-    const previousEarnings = await this.bookingModel.aggregate([
+    const previousEarnings = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: prevStartDate, $lte: prevEndDate },
         },
       },
@@ -214,11 +214,11 @@ export class ProviderAnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<ServiceAnalytics> {
-    const serviceStats = await this.bookingModel.aggregate([
+    const serviceStats = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },
@@ -284,11 +284,11 @@ export class ProviderAnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<RatingAnalytics> {
-    const ratingStats = await this.bookingModel.aggregate([
+    const ratingStats = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           seekerRating: { $exists: true, $ne: null },
           completedAt: { $gte: startDate, $lte: endDate },
         },
@@ -334,11 +334,11 @@ export class ProviderAnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<PeakHourData[]> {
-    const peakHourData = await this.bookingModel.aggregate([
+    const peakHourData = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },
@@ -394,11 +394,11 @@ export class ProviderAnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<WeeklyTrendData[]> {
-    const weeklyData = await this.bookingModel.aggregate([
+    const weeklyData = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },

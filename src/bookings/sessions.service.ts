@@ -67,9 +67,15 @@ export class SessionsService {
     const startTime = createSessionDto.startTime;
     const endTime = this.calculateEndTime(startTime, createSessionDto.duration);
 
-    // Check provider availability
+    // Check provider availability (skip for generic services without provider)
+    if (!service.providerId) {
+      throw new BadRequestException(
+        'This is a generic service. Please use the service request system instead.',
+      );
+    }
+
     const isProviderAvailable = await this.availabilityService.isAvailable(
-      service.providerId._id.toString(),
+      service.providerId.toString(),
       new Date(createSessionDto.sessionDate),
       startTime,
       endTime,
@@ -84,7 +90,7 @@ export class SessionsService {
 
     // Check for conflicts with existing sessions
     const hasConflict = await this.checkSessionConflict(
-      service.providerId._id.toString(),
+      service.providerId.toString(),
       new Date(createSessionDto.sessionDate),
       startTime,
       endTime,
@@ -100,7 +106,7 @@ export class SessionsService {
     // Create session
     const session = new this.sessionModel({
       seekerId,
-      providerId: service.providerId._id,
+      providerId: service.providerId,
       serviceId: service._id,
       serviceName: service.title,
       category: service.category,
@@ -234,7 +240,7 @@ export class SessionsService {
     // Check if user has permission to update this session
     const canUpdate =
       session.seekerId.toString() === userId ||
-      session.providerId.toString() === userId ||
+      session.providerId?.toString() === userId ||
       userRole === UserRole.PROVIDER; // Assuming admins can update any session
 
     if (!canUpdate) {
@@ -260,7 +266,7 @@ export class SessionsService {
       const endTime = this.calculateEndTime(startTime, duration);
 
       // Check for conflicts (excluding current session)
-      const hasConflict = await this.checkSessionConflict(
+      const hasConflict = session.providerId && await this.checkSessionConflict(
         session.providerId.toString(),
         sessionDate,
         startTime,
@@ -312,7 +318,7 @@ export class SessionsService {
     ) {
       try {
         await this.walletService.processEarning(
-          session.providerId.toString(),
+          session.providerId!.toString(),
           id,
           session.totalAmount,
         );
@@ -323,6 +329,19 @@ export class SessionsService {
     }
 
     return this.mapToResponseDto(updatedSession!);
+  }
+
+  async updatePaymentStatus(
+    sessionId: string,
+    paymentStatus: string,
+  ): Promise<void> {
+    const session = await this.sessionModel.findById(sessionId);
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    session.paymentStatus = paymentStatus as PaymentStatus;
+    await session.save();
   }
 
   async cancelSession(
@@ -339,7 +358,7 @@ export class SessionsService {
     // Only seeker or provider can cancel
     if (
       session.seekerId.toString() !== userId &&
-      session.providerId.toString() !== userId
+      session.providerId?.toString() !== userId
     ) {
       throw new ForbiddenException('You can only cancel your own sessions');
     }
@@ -372,7 +391,7 @@ export class SessionsService {
       sessionDate: date,
       status: {
         $in: [
-          SessionStatus.PENDING,
+          SessionStatus.PENDING_ASSIGNMENT,
           SessionStatus.CONFIRMED,
           SessionStatus.IN_PROGRESS,
         ],
@@ -403,7 +422,7 @@ export class SessionsService {
     return {
       id: (session._id as any).toString(),
       seekerId: session.seekerId.toString(),
-      providerId: session.providerId.toString(),
+      providerId: session.providerId?.toString(),
       serviceId: session.serviceId.toString(),
       serviceName: session.serviceName,
       category: session.category,
@@ -458,7 +477,7 @@ export class SessionsService {
 
     statusCounts.forEach(({ _id, count, totalAmount }) => {
       switch (_id) {
-        case SessionStatus.PENDING:
+        case SessionStatus.PENDING_ASSIGNMENT:
           summary.pending = count;
           break;
         case SessionStatus.CONFIRMED:

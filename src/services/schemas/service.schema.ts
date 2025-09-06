@@ -52,18 +52,14 @@ export class Service {
   })
   category: ServiceCategory;
 
-  // Pricing is now handled by category-based system
-  // No provider-set pricing allowed
+  // Pricing is handled by category-based SessionConfig system
+  // Services are now generic templates, not provider-specific
 
   @Prop({ type: [String], default: [] })
-  images: string[];
+  images: string[]; // Default category images
 
-  @Prop({
-    type: String,
-    enum: CameroonProvince,
-    required: true,
-  })
-  location: CameroonProvince;
+  @Prop({ type: [String], default: [] })
+  tags: string[]; // Service tags for better searchability
 
   @Prop({
     type: String,
@@ -72,8 +68,11 @@ export class Service {
   })
   status: ServiceStatus;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  providerId: Types.ObjectId;
+  @Prop({ default: true })
+  isAvailable: boolean; // Admin can disable service categories
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  providerId?: Types.ObjectId;
 
   @Prop({ default: 0 })
   averageRating: number;
@@ -81,14 +80,15 @@ export class Service {
   @Prop({ default: 0 })
   totalReviews: number;
 
-  @Prop({ type: [String], default: [] })
-  tags: string[];
+  // Requirements and expectations for this service type
+  @Prop()
+  requirements?: string; // What seekers should prepare
 
-  @Prop({ default: true })
-  isAvailable: boolean;
+  @Prop()
+  expectedDuration?: string; // Typical duration description
 
-  // Session-based booking - no hourly minimums/maximums
-  // All bookings are session-based with overtime billing
+  @Prop()
+  whatIsIncluded?: string; // What the service typically includes
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);

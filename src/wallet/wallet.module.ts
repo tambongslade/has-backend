@@ -14,7 +14,7 @@ import {
   WithdrawalRequest,
   WithdrawalRequestSchema,
 } from './schemas/withdrawal-request.schema';
-import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
+import { Session, SessionSchema } from '../bookings/schemas/session.schema';
 import { BookingsModule } from '../bookings/bookings.module';
 
 @Module({
@@ -24,7 +24,7 @@ import { BookingsModule } from '../bookings/bookings.module';
       { name: Transaction.name, schema: TransactionSchema },
       { name: Payment.name, schema: PaymentSchema },
       { name: WithdrawalRequest.name, schema: WithdrawalRequestSchema },
-      { name: Booking.name, schema: BookingSchema },
+      { name: Session.name, schema: SessionSchema },
     ]),
     forwardRef(() => BookingsModule),
   ],

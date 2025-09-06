@@ -12,7 +12,7 @@ import { UpcomingBookingsService } from './services/upcoming-bookings.service';
 import { ProvidersController } from './providers.controller';
 
 // Schemas
-import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
+import { Session, SessionSchema } from '../bookings/schemas/session.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Wallet, WalletSchema } from '../wallet/schemas/wallet.schema';
 import {
@@ -28,7 +28,7 @@ import { Service, ServiceSchema } from '../services/schemas/service.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: Booking.name, schema: BookingSchema },
+      { name: Session.name, schema: SessionSchema },
       { name: User.name, schema: UserSchema },
       { name: Wallet.name, schema: WalletSchema },
       { name: Transaction.name, schema: TransactionSchema },

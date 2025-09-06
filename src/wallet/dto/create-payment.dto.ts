@@ -15,10 +15,10 @@ import { PaymentProvider, PaymentType } from '../schemas/payment.schema';
 export class CreatePaymentDto {
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'Booking ID for which payment is being made',
+    description: 'Session ID for which payment is being made',
   })
   @IsMongoId()
-  bookingId: string;
+  sessionId: string;
 
   @ApiProperty({
     example: 25000,
@@ -148,9 +148,9 @@ export class PaymentStatusDto {
 
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
-    description: 'Associated booking ID',
+    description: 'Associated session ID',
   })
-  bookingId: string;
+  sessionId: string;
 
   @ApiPropertyOptional({
     example: 'Payment completed successfully',

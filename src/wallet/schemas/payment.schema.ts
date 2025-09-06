@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema';
-import { Booking } from '../../bookings/schemas/booking.schema';
+import { Session } from '../../bookings/schemas/session.schema';
 
 export type PaymentDocument = Payment & Document;
 
@@ -95,8 +95,8 @@ export class Payment {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   receiverId: Types.ObjectId; // Usually the provider receiving payment
 
-  @Prop({ type: Types.ObjectId, ref: 'Booking', required: true })
-  bookingId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Session', required: true })
+  sessionId: Types.ObjectId;
 
   @Prop({ required: true })
   amount: number; // Amount in FCFA

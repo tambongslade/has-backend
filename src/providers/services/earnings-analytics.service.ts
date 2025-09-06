@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
-  Booking,
-  BookingDocument,
-  BookingStatus,
-} from '../../bookings/schemas/booking.schema';
+  Session,
+  SessionDocument,
+  SessionStatus,
+} from '../../bookings/schemas/session.schema';
 import { Wallet, WalletDocument } from '../../wallet/schemas/wallet.schema';
 import {
   Transaction,
@@ -23,7 +23,7 @@ import {
 @Injectable()
 export class EarningsAnalyticsService {
   constructor(
-    @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
     @InjectModel(Transaction.name)
     private transactionModel: Model<TransactionDocument>,
@@ -87,11 +87,11 @@ export class EarningsAnalyticsService {
     endDate: Date,
   ): Promise<PeriodEarnings> {
     // Calculate current period earnings
-    const currentPeriodResults = await this.bookingModel.aggregate([
+    const currentPeriodResults = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },
@@ -108,11 +108,11 @@ export class EarningsAnalyticsService {
     const { startDate: prevStartDate, endDate: prevEndDate } =
       this.getPreviousPeriod(period, startDate, endDate);
 
-    const previousPeriodResults = await this.bookingModel.aggregate([
+    const previousPeriodResults = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: prevStartDate, $lte: prevEndDate },
         },
       },
@@ -156,11 +156,11 @@ export class EarningsAnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<DailyEarnings[]> {
-    const dailyBreakdown = await this.bookingModel.aggregate([
+    const dailyBreakdown = await this.sessionModel.aggregate([
       {
         $match: {
           providerId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },
@@ -310,11 +310,11 @@ export class EarningsAnalyticsService {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - days);
 
-    const result = await this.bookingModel.aggregate([
+    const result = await this.sessionModel.aggregate([
       {
         $match: {
           providerId: providerObjectId,
-          status: BookingStatus.COMPLETED,
+          status: SessionStatus.COMPLETED,
           completedAt: { $gte: startDate, $lte: endDate },
         },
       },
