@@ -631,3 +631,4 @@ curl -X PUT http://localhost:3000/api/v1/sessions/507f1f77bcf86cd799439015/cance
 ---
 
 **Note:** This session system has completely replaced the legacy booking system and is fully integrated with availability, payment, and wallet systems. All endpoints are production-ready and include comprehensive error handling and validation.
+
