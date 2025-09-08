@@ -32,11 +32,13 @@ export class ServiceRequestController {
   @Post()
   @ApiOperation({
     summary: 'Create a service request',
-    description: 'Create a service request with specific requirements. Admin will assign a provider.',
+    description:
+      'Create a service request with specific requirements. Admin will assign a provider.',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Service request created successfully and sent to admin for assignment',
+    description:
+      'Service request created successfully and sent to admin for assignment',
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,

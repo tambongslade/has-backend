@@ -128,7 +128,7 @@ export class ServicesService {
 
     // Only the provider who created the service can update it
     if (
-      service.providerId && 
+      service.providerId &&
       service.providerId.toString() !== userId &&
       userRole !== UserRole.PROVIDER
     ) {
@@ -152,7 +152,7 @@ export class ServicesService {
 
     // Only the provider who created the service can delete it
     if (
-      service.providerId && 
+      service.providerId &&
       service.providerId.toString() !== userId &&
       userRole !== UserRole.PROVIDER
     ) {
@@ -247,7 +247,7 @@ export class ServicesService {
     services.forEach((service) => {
       // Skip generic services without providers
       if (!service.providerId) return;
-      
+
       const providerId = service.providerId.toString();
       if (!providersMap.has(providerId)) {
         providersMap.set(providerId, {

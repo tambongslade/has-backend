@@ -252,7 +252,9 @@ export class ProviderDashboardService {
     const nextSession = await this.sessionModel
       .findOne({
         providerId,
-        status: { $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT] },
+        status: {
+          $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT],
+        },
         sessionDate: { $gte: now },
       })
       .populate('seekerId', 'fullName')

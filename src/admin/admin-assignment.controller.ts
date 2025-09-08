@@ -19,8 +19,16 @@ import {
   ApiQuery,
   ApiBody,
 } from '@nestjs/swagger';
-import { AdminAssignmentService, ProviderFilterOptions, AssignmentRequest, AvailableProvidersResponse } from './admin-assignment.service';
-import { RejectAssignmentDto, RejectAssignmentResponseDto } from './dto/reject-assignment.dto';
+import {
+  AdminAssignmentService,
+  ProviderFilterOptions,
+  AssignmentRequest,
+  AvailableProvidersResponse,
+} from './admin-assignment.service';
+import {
+  RejectAssignmentDto,
+  RejectAssignmentResponseDto,
+} from './dto/reject-assignment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 
@@ -29,7 +37,9 @@ import { AdminGuard } from './guards/admin.guard';
 @UseGuards(JwtAuthGuard, AdminGuard)
 @ApiBearerAuth('JWT-auth')
 export class AdminAssignmentController {
-  constructor(private readonly adminAssignmentService: AdminAssignmentService) {}
+  constructor(
+    private readonly adminAssignmentService: AdminAssignmentService,
+  ) {}
 
   @Get('pending')
   @ApiOperation({
@@ -63,7 +73,8 @@ export class AdminAssignmentController {
   @Get('providers/:sessionId')
   @ApiOperation({
     summary: 'Find available providers for a session',
-    description: 'Get list of providers available for assignment to a specific session',
+    description:
+      'Get list of providers available for assignment to a specific session',
   })
   @ApiParam({
     name: 'sessionId',
@@ -102,13 +113,16 @@ export class AdminAssignmentController {
     @Query('experienceLevel') experienceLevel?: string,
   ): Promise<AvailableProvidersResponse> {
     const filters: ProviderFilterOptions = {};
-    
+
     if (category) filters.category = category as any;
     if (location) filters.location = location as any;
     if (minRating) filters.minRating = minRating;
     if (experienceLevel) filters.experienceLevel = experienceLevel;
 
-    return this.adminAssignmentService.findAvailableProviders(sessionId, filters);
+    return this.adminAssignmentService.findAvailableProviders(
+      sessionId,
+      filters,
+    );
   }
 
   @Post('assign')
@@ -172,7 +186,8 @@ export class AdminAssignmentController {
   @Put(':sessionId/reject')
   @ApiOperation({
     summary: 'Reject service request',
-    description: 'Reject a service request with reason and optional admin notes',
+    description:
+      'Reject a service request with reason and optional admin notes',
   })
   @ApiParam({
     name: 'sessionId',

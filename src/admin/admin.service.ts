@@ -1,13 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument, UserRole } from '../users/schemas/user.schema';
-import { Session, SessionDocument, SessionStatus } from '../bookings/schemas/session.schema';
+import { User, UserDocument, UserRole, ProviderStatus } from '../users/schemas/user.schema';
+import {
+  ApproveProviderDto,
+  RejectProviderDto,
+  UpdateProviderStatusDto,
+  ProviderValidationResponseDto,
+  PendingProvidersResponseDto,
+  ProviderListResponseDto,
+} from './dto/provider-validation.dto';
+import {
+  Session,
+  SessionDocument,
+  SessionStatus,
+} from '../bookings/schemas/session.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
 import { Wallet, WalletDocument } from '../wallet/schemas/wallet.schema';
-import { Transaction, TransactionDocument } from '../wallet/schemas/transaction.schema';
-import { ProviderReview, ProviderReviewDocument } from '../users/schemas/provider-review.schema';
-import { Availability, AvailabilityDocument } from '../bookings/schemas/availability.schema';
+import {
+  Transaction,
+  TransactionDocument,
+} from '../wallet/schemas/transaction.schema';
+import {
+  ProviderReview,
+  ProviderReviewDocument,
+} from '../users/schemas/provider-review.schema';
+import {
+  Availability,
+  AvailabilityDocument,
+} from '../bookings/schemas/availability.schema';
 
 @Injectable()
 export class AdminService {
@@ -16,9 +37,12 @@ export class AdminService {
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
     @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
-    @InjectModel(Transaction.name) private transactionModel: Model<TransactionDocument>,
-    @InjectModel(ProviderReview.name) private reviewModel: Model<ProviderReviewDocument>,
-    @InjectModel(Availability.name) private availabilityModel: Model<AvailabilityDocument>,
+    @InjectModel(Transaction.name)
+    private transactionModel: Model<TransactionDocument>,
+    @InjectModel(ProviderReview.name)
+    private reviewModel: Model<ProviderReviewDocument>,
+    @InjectModel(Availability.name)
+    private availabilityModel: Model<AvailabilityDocument>,
   ) {}
 
   async updateUserStatus(userId: string, isActive: boolean) {
@@ -85,7 +109,7 @@ export class AdminService {
       sessionsToday,
       sessionsYesterday,
       totalUsersThisMonth,
-      totalUsersLastMonth
+      totalUsersLastMonth,
     ] = await Promise.all([
       this.userModel.countDocuments({}),
       this.userModel.countDocuments({ role: UserRole.PROVIDER }),
@@ -93,10 +117,18 @@ export class AdminService {
       this.serviceModel.countDocuments({}),
       this.sessionModel.countDocuments({}),
       this.serviceModel.countDocuments({ isAvailable: true }),
-      this.sessionModel.countDocuments({ createdAt: { $gte: todayStart, $lt: tomorrowStart } }),
-      this.sessionModel.countDocuments({ createdAt: { $gte: yesterdayStart, $lt: todayStart } }),
-      this.userModel.countDocuments({ createdAt: { $gte: monthStart, $lt: nextMonthStart } }),
-      this.userModel.countDocuments({ createdAt: { $gte: prevMonthStart, $lt: monthStart } })
+      this.sessionModel.countDocuments({
+        createdAt: { $gte: todayStart, $lt: tomorrowStart },
+      }),
+      this.sessionModel.countDocuments({
+        createdAt: { $gte: yesterdayStart, $lt: todayStart },
+      }),
+      this.userModel.countDocuments({
+        createdAt: { $gte: monthStart, $lt: nextMonthStart },
+      }),
+      this.userModel.countDocuments({
+        createdAt: { $gte: prevMonthStart, $lt: monthStart },
+      }),
     ]);
 
     const pct = (curr: number, prev: number) => {
@@ -107,13 +139,35 @@ export class AdminService {
     // Revenue and commission for current month
     const [revenueMonthAgg, revenuePrevMonthAgg] = await Promise.all([
       this.sessionModel.aggregate([
-        { $match: { status: SessionStatus.COMPLETED, updatedAt: { $gte: monthStart, $lt: nextMonthStart } } },
-        { $group: { _id: null, amount: { $sum: '$totalAmount' }, count: { $sum: 1 } } }
+        {
+          $match: {
+            status: SessionStatus.COMPLETED,
+            updatedAt: { $gte: monthStart, $lt: nextMonthStart },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            amount: { $sum: '$totalAmount' },
+            count: { $sum: 1 },
+          },
+        },
       ]),
       this.sessionModel.aggregate([
-        { $match: { status: SessionStatus.COMPLETED, updatedAt: { $gte: prevMonthStart, $lt: monthStart } } },
-        { $group: { _id: null, amount: { $sum: '$totalAmount' }, count: { $sum: 1 } } }
-      ])
+        {
+          $match: {
+            status: SessionStatus.COMPLETED,
+            updatedAt: { $gte: prevMonthStart, $lt: monthStart },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            amount: { $sum: '$totalAmount' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
     const revenueThisMonth = revenueMonthAgg[0]?.amount || 0;
     const revenueLastMonth = revenuePrevMonthAgg[0]?.amount || 0;
@@ -121,28 +175,49 @@ export class AdminService {
     const platformEarningsLastMonth = revenueLastMonth * 0.1;
 
     // Completion rate this month
-    const [sessionsInMonth, completedInMonth, sessionsPrevMonth, completedPrevMonth] = await Promise.all([
-      this.sessionModel.countDocuments({ createdAt: { $gte: monthStart, $lt: nextMonthStart } }),
-      this.sessionModel.countDocuments({ status: SessionStatus.COMPLETED, updatedAt: { $gte: monthStart, $lt: nextMonthStart } }),
-      this.sessionModel.countDocuments({ createdAt: { $gte: prevMonthStart, $lt: monthStart } }),
-      this.sessionModel.countDocuments({ status: SessionStatus.COMPLETED, updatedAt: { $gte: prevMonthStart, $lt: monthStart } })
+    const [
+      sessionsInMonth,
+      completedInMonth,
+      sessionsPrevMonth,
+      completedPrevMonth,
+    ] = await Promise.all([
+      this.sessionModel.countDocuments({
+        createdAt: { $gte: monthStart, $lt: nextMonthStart },
+      }),
+      this.sessionModel.countDocuments({
+        status: SessionStatus.COMPLETED,
+        updatedAt: { $gte: monthStart, $lt: nextMonthStart },
+      }),
+      this.sessionModel.countDocuments({
+        createdAt: { $gte: prevMonthStart, $lt: monthStart },
+      }),
+      this.sessionModel.countDocuments({
+        status: SessionStatus.COMPLETED,
+        updatedAt: { $gte: prevMonthStart, $lt: monthStart },
+      }),
     ]);
-    const completionRate = sessionsInMonth ? (completedInMonth / sessionsInMonth) * 100 : 0;
-    const completionRatePrev = sessionsPrevMonth ? (completedPrevMonth / sessionsPrevMonth) * 100 : 0;
-    const completionRateChange = completionRatePrev ? completionRate - completionRatePrev : completionRate;
+    const completionRate = sessionsInMonth
+      ? (completedInMonth / sessionsInMonth) * 100
+      : 0;
+    const completionRatePrev = sessionsPrevMonth
+      ? (completedPrevMonth / sessionsPrevMonth) * 100
+      : 0;
+    const completionRateChange = completionRatePrev
+      ? completionRate - completionRatePrev
+      : completionRate;
 
     // Active providers (providers with at least one session this month)
     const [activeProvidersAgg, activeProvidersPrevAgg] = await Promise.all([
       this.sessionModel.aggregate([
         { $match: { createdAt: { $gte: monthStart, $lt: nextMonthStart } } },
         { $group: { _id: '$providerId' } },
-        { $count: 'count' }
+        { $count: 'count' },
       ]),
       this.sessionModel.aggregate([
         { $match: { createdAt: { $gte: prevMonthStart, $lt: monthStart } } },
         { $group: { _id: '$providerId' } },
-        { $count: 'count' }
-      ])
+        { $count: 'count' },
+      ]),
     ]);
     const activeProviders = activeProvidersAgg[0]?.count || 0;
     const activeProvidersPrev = activeProvidersPrevAgg[0]?.count || 0;
@@ -151,73 +226,123 @@ export class AdminService {
     const [avgRatingCurrAgg, avgRatingPrevAgg] = await Promise.all([
       this.reviewModel.aggregate([
         { $match: { createdAt: { $gte: monthStart, $lt: nextMonthStart } } },
-        { $group: { _id: null, avg: { $avg: '$rating' } } }
+        { $group: { _id: null, avg: { $avg: '$rating' } } },
       ]),
       this.reviewModel.aggregate([
         { $match: { createdAt: { $gte: prevMonthStart, $lt: monthStart } } },
-        { $group: { _id: null, avg: { $avg: '$rating' } } }
-      ])
+        { $group: { _id: null, avg: { $avg: '$rating' } } },
+      ]),
     ]);
     const averageRating = Number((avgRatingCurrAgg[0]?.avg || 0).toFixed(1));
-    const averageRatingPrev = Number((avgRatingPrevAgg[0]?.avg || 0).toFixed(1));
-    const averageRatingChange = Number((averageRating - averageRatingPrev).toFixed(1));
+    const averageRatingPrev = Number(
+      (avgRatingPrevAgg[0]?.avg || 0).toFixed(1),
+    );
+    const averageRatingChange = Number(
+      (averageRating - averageRatingPrev).toFixed(1),
+    );
 
     // Service categories distribution for current month
     const categoryStats = await this.sessionModel.aggregate([
-      { $match: { status: SessionStatus.COMPLETED, updatedAt: { $gte: monthStart, $lt: nextMonthStart } } },
-      { $group: { _id: '$category', sessions: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
-      { $sort: { revenue: -1 } }
+      {
+        $match: {
+          status: SessionStatus.COMPLETED,
+          updatedAt: { $gte: monthStart, $lt: nextMonthStart },
+        },
+      },
+      {
+        $group: {
+          _id: '$category',
+          sessions: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' },
+        },
+      },
+      { $sort: { revenue: -1 } },
     ]);
 
     // Top performing providers this month
     const topProvidersAgg = await this.sessionModel.aggregate([
-      { $match: { status: SessionStatus.COMPLETED, updatedAt: { $gte: monthStart, $lt: nextMonthStart } } },
-      { $group: { _id: '$providerId', earnings: { $sum: '$totalAmount' }, sessions: { $sum: 1 } } },
+      {
+        $match: {
+          status: SessionStatus.COMPLETED,
+          updatedAt: { $gte: monthStart, $lt: nextMonthStart },
+        },
+      },
+      {
+        $group: {
+          _id: '$providerId',
+          earnings: { $sum: '$totalAmount' },
+          sessions: { $sum: 1 },
+        },
+      },
       { $sort: { earnings: -1 } },
-      { $limit: 5 }
+      { $limit: 5 },
     ]);
-    const topProviderIds = Array.isArray(topProvidersAgg) ? topProvidersAgg.map(p => p._id) : [];
+    const topProviderIds = Array.isArray(topProvidersAgg)
+      ? topProvidersAgg.map((p) => p._id)
+      : [];
     const topProviderUsers = await this.userModel
       .find({ _id: { $in: topProviderIds } })
       .select('fullName role')
       .lean();
-    const providerIdToUser = new Map(topProviderUsers.map(u => [u._id.toString(), u]));
+    const providerIdToUser = new Map(
+      topProviderUsers.map((u) => [u._id.toString(), u]),
+    );
 
     // Recent activity (very simple feed)
-    const [recentSessions, recentProviders, recentTransactions, recentCompletedSessions] = await Promise.all([
+    const [
+      recentSessions,
+      recentProviders,
+      recentTransactions,
+      recentCompletedSessions,
+    ] = await Promise.all([
       this.sessionModel.find({}).sort({ createdAt: -1 }).limit(5).lean(),
-      this.userModel.find({ role: UserRole.PROVIDER }).sort({ createdAt: -1 }).limit(5).lean(),
-      this.transactionModel.find({ status: 'completed' }).sort({ createdAt: -1 }).limit(5).lean(),
-      this.sessionModel.find({ status: SessionStatus.COMPLETED }).sort({ updatedAt: -1 }).limit(5).lean()
+      this.userModel
+        .find({ role: UserRole.PROVIDER })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      this.transactionModel
+        .find({ status: 'completed' })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      this.sessionModel
+        .find({ status: SessionStatus.COMPLETED })
+        .sort({ updatedAt: -1 })
+        .limit(5)
+        .lean(),
     ]);
 
     const recentActivity = [
-      ...recentSessions.map(s => ({
+      ...recentSessions.map((s) => ({
         type: 'session_created',
         title: 'New session booked',
         description: `${s.serviceName || 'Session'} booked`,
-        timestamp: (s as any).createdAt
+        timestamp: (s as any).createdAt,
       })),
-      ...recentProviders.map(u => ({
+      ...recentProviders.map((u) => ({
         type: 'provider_registered',
         title: 'New provider registered',
         description: `${u.fullName} joined as Provider`,
-        timestamp: (u as any).createdAt
+        timestamp: (u as any).createdAt,
       })),
-      ...recentTransactions.map(t => ({
+      ...recentTransactions.map((t) => ({
         type: 'payment_completed',
         title: 'Payment completed',
         description: `Transaction ${t.transactionReference || ''} - ${(t.amount || 0).toLocaleString()} FCFA received`,
-        timestamp: (t as any).createdAt
+        timestamp: (t as any).createdAt,
       })),
-      ...recentCompletedSessions.map(s => ({
+      ...recentCompletedSessions.map((s) => ({
         type: 'session_completed',
         title: 'Session completed',
         description: `${s.serviceName || 'Session'} completed`,
-        timestamp: (s as any).updatedAt
-      }))
+        timestamp: (s as any).updatedAt,
+      })),
     ]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
       .slice(0, 10);
 
     // Compose response aligned with requested widgets
@@ -225,39 +350,43 @@ export class AdminService {
       // Key tiles
       sessionsToday: {
         count: sessionsToday,
-        changePct: Number(pct(sessionsToday, sessionsYesterday).toFixed(1))
+        changePct: Number(pct(sessionsToday, sessionsYesterday).toFixed(1)),
       },
       totalRevenueThisMonth: {
         amount: revenueThisMonth,
-        currency: 'FCFA'
+        currency: 'FCFA',
       },
       totalUsers: {
         count: totalUsers,
-        growthPct: Number(pct(totalUsersThisMonth, totalUsersLastMonth).toFixed(1))
+        growthPct: Number(
+          pct(totalUsersThisMonth, totalUsersLastMonth).toFixed(1),
+        ),
       },
       activeUsersThisMonth: {
         // Users created this month (proxy); if you prefer users who participated in sessions, we can change
-        count: totalUsersThisMonth
+        count: totalUsersThisMonth,
       },
       platformEarningsThisMonth: {
         amount: platformEarningsThisMonth,
-        changePct: Number(pct(platformEarningsThisMonth, platformEarningsLastMonth).toFixed(1))
+        changePct: Number(
+          pct(platformEarningsThisMonth, platformEarningsLastMonth).toFixed(1),
+        ),
       },
       completionRate: {
         valuePct: Number(completionRate.toFixed(1)),
-        changePct: Number(completionRateChange.toFixed(1))
+        changePct: Number(completionRateChange.toFixed(1)),
       },
       totalSessionsThisMonth: {
         count: sessionsInMonth,
-        growthPct: Number(pct(sessionsInMonth, sessionsPrevMonth).toFixed(1))
+        growthPct: Number(pct(sessionsInMonth, sessionsPrevMonth).toFixed(1)),
       },
       activeProviders: {
         count: activeProviders,
-        growthPct: Number(pct(activeProviders, activeProvidersPrev).toFixed(1))
+        growthPct: Number(pct(activeProviders, activeProvidersPrev).toFixed(1)),
       },
       averageRating: {
         value: averageRating,
-        change: averageRatingChange
+        change: averageRatingChange,
       },
 
       // Revenue Analytics (monthly)
@@ -268,39 +397,48 @@ export class AdminService {
             $group: {
               _id: { $dateToString: { format: '%Y-%m', date: '$sessionDate' } },
               revenue: { $sum: '$totalAmount' },
-              sessions: { $sum: 1 }
-            }
+              sessions: { $sum: 1 },
+            },
           },
           { $sort: { _id: 1 } },
-          { $limit: 12 }
+          { $limit: 12 },
         ]);
-        return revenueByPeriod.map(r => ({ period: r._id, revenue: r.revenue, sessions: r.sessions }));
+        return revenueByPeriod.map((r) => ({
+          period: r._id,
+          revenue: r.revenue,
+          sessions: r.sessions,
+        }));
       })(),
 
       // Service Categories
-      serviceCategories: categoryStats.map(cat => ({
+      serviceCategories: categoryStats.map((cat) => ({
         category: cat._id,
         sessions: cat.sessions,
-        revenue: cat.revenue
+        revenue: cat.revenue,
       })),
 
       // Top Providers
-      topProviders: topProvidersAgg.map(p => {
+      topProviders: topProvidersAgg.map((p) => {
         const u = providerIdToUser.get(p._id.toString());
         return {
           providerId: p._id,
           fullName: u?.fullName || 'Unknown',
           earnings: p.earnings,
-          sessions: p.sessions
+          sessions: p.sessions,
         };
       }),
 
       // Recent Activity
-      recentActivity
+      recentActivity,
     };
   }
 
-  async getUserManagement(page = 1, limit = 50, role?: string, status?: string) {
+  async getUserManagement(
+    page = 1,
+    limit = 50,
+    role?: string,
+    status?: string,
+  ) {
     const skip = (page - 1) * limit;
     const query: any = {};
 
@@ -322,7 +460,7 @@ export class AdminService {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.userModel.countDocuments(query)
+      this.userModel.countDocuments(query),
     ]);
 
     // Get user statistics (sessions, earnings, ratings)
@@ -332,18 +470,22 @@ export class AdminService {
 
         if (user.role === UserRole.PROVIDER) {
           const [sessions, wallet, reviews] = await Promise.all([
-            this.sessionModel.countDocuments({ providerId: new Types.ObjectId(userId) }),
-            this.walletModel.findOne({ providerId: new Types.ObjectId(userId) }),
+            this.sessionModel.countDocuments({
+              providerId: new Types.ObjectId(userId),
+            }),
+            this.walletModel.findOne({
+              providerId: new Types.ObjectId(userId),
+            }),
             this.reviewModel.aggregate([
               { $match: { providerId: new Types.ObjectId(userId) } },
               {
                 $group: {
                   _id: null,
                   averageRating: { $avg: '$rating' },
-                  totalReviews: { $sum: 1 }
-                }
-              }
-            ])
+                  totalReviews: { $sum: 1 },
+                },
+              },
+            ]),
           ]);
 
           return {
@@ -351,24 +493,31 @@ export class AdminService {
             totalSessions: sessions,
             totalEarned: wallet?.totalEarnings || 0,
             averageRating: reviews[0]?.averageRating || 0,
-            totalReviews: reviews[0]?.totalReviews || 0
+            totalReviews: reviews[0]?.totalReviews || 0,
           };
         } else {
           const [sessions, totalSpent] = await Promise.all([
-            this.sessionModel.countDocuments({ seekerId: new Types.ObjectId(userId) }),
+            this.sessionModel.countDocuments({
+              seekerId: new Types.ObjectId(userId),
+            }),
             this.sessionModel.aggregate([
-              { $match: { seekerId: new Types.ObjectId(userId), status: SessionStatus.COMPLETED } },
-              { $group: { _id: null, totalSpent: { $sum: '$totalAmount' } } }
-            ])
+              {
+                $match: {
+                  seekerId: new Types.ObjectId(userId),
+                  status: SessionStatus.COMPLETED,
+                },
+              },
+              { $group: { _id: null, totalSpent: { $sum: '$totalAmount' } } },
+            ]),
           ]);
 
           return {
             ...user,
             totalSessions: sessions,
-            totalSpent: totalSpent[0]?.totalSpent || 0
+            totalSpent: totalSpent[0]?.totalSpent || 0,
           };
         }
-      })
+      }),
     );
 
     return {
@@ -377,8 +526,8 @@ export class AdminService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -390,11 +539,11 @@ export class AdminService {
         $group: {
           _id: '$providerId',
           totalSessions: { $sum: 1 },
-          totalEarnings: { $sum: '$totalAmount' }
-        }
+          totalEarnings: { $sum: '$totalAmount' },
+        },
       },
       { $sort: { totalEarnings: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     const topProvidersWithDetails = await Promise.all(
@@ -407,23 +556,24 @@ export class AdminService {
               $group: {
                 _id: null,
                 averageRating: { $avg: '$rating' },
-                totalReviews: { $sum: 1 }
-              }
-            }
+                totalReviews: { $sum: 1 },
+              },
+            },
           ]),
-          this.serviceModel.countDocuments({ providerId: provider._id })
+          this.serviceModel.countDocuments({ providerId: provider._id }),
         ]);
 
         // Calculate completion rate
         const [totalSessions, completedSessions] = await Promise.all([
           this.sessionModel.countDocuments({ providerId: provider._id }),
-          this.sessionModel.countDocuments({ 
-            providerId: provider._id, 
-            status: SessionStatus.COMPLETED 
-          })
+          this.sessionModel.countDocuments({
+            providerId: provider._id,
+            status: SessionStatus.COMPLETED,
+          }),
         ]);
 
-        const completionRate = totalSessions > 0 ? completedSessions / totalSessions : 0;
+        const completionRate =
+          totalSessions > 0 ? completedSessions / totalSessions : 0;
 
         return {
           id: provider._id,
@@ -434,9 +584,9 @@ export class AdminService {
           averageRating: reviews[0]?.averageRating || 0,
           totalReviews: reviews[0]?.totalReviews || 0,
           completionRate,
-          totalServices: services
+          totalServices: services,
         };
-      })
+      }),
     );
 
     // Providers by category
@@ -444,26 +594,26 @@ export class AdminService {
       {
         $group: {
           _id: '$category',
-          count: { $addToSet: '$providerId' }
-        }
+          count: { $addToSet: '$providerId' },
+        },
       },
       {
         $project: {
           _id: 1,
-          count: { $size: '$count' }
-        }
-      }
+          count: { $size: '$count' },
+        },
+      },
     ]);
 
     const categoryBreakdown = {};
-    providersByCategory.forEach(cat => {
+    providersByCategory.forEach((cat) => {
       categoryBreakdown[cat._id] = cat.count;
     });
 
     // Availability stats
     const [totalProviders, providersWithAvailability] = await Promise.all([
       this.userModel.countDocuments({ role: UserRole.PROVIDER }),
-      this.availabilityModel.distinct('providerId').then(ids => ids.length)
+      this.availabilityModel.distinct('providerId').then((ids) => ids.length),
     ]);
 
     return {
@@ -473,12 +623,20 @@ export class AdminService {
         totalProviders,
         totalWithAvailability: providersWithAvailability,
         totalWithoutAvailability: totalProviders - providersWithAvailability,
-        coveragePercentage: totalProviders > 0 ? (providersWithAvailability / totalProviders) * 100 : 0
-      }
+        coveragePercentage:
+          totalProviders > 0
+            ? (providersWithAvailability / totalProviders) * 100
+            : 0,
+      },
     };
   }
 
-  async getServiceManagement(page = 1, limit = 50, category?: string, status?: string) {
+  async getServiceManagement(
+    page = 1,
+    limit = 50,
+    category?: string,
+    status?: string,
+  ) {
     const skip = (page - 1) * limit;
     const query: any = {};
 
@@ -500,7 +658,7 @@ export class AdminService {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.serviceModel.countDocuments(query)
+      this.serviceModel.countDocuments(query),
     ]);
 
     // Get service statistics
@@ -508,29 +666,31 @@ export class AdminService {
       services.map(async (service) => {
         const serviceId = service._id.toString();
         const [sessions, revenue, lastBooking] = await Promise.all([
-          this.sessionModel.countDocuments({ serviceId: new Types.ObjectId(serviceId) }),
+          this.sessionModel.countDocuments({
+            serviceId: new Types.ObjectId(serviceId),
+          }),
           this.sessionModel.aggregate([
-            { 
-              $match: { 
-                serviceId: new Types.ObjectId(serviceId), 
-                status: SessionStatus.COMPLETED 
-              } 
+            {
+              $match: {
+                serviceId: new Types.ObjectId(serviceId),
+                status: SessionStatus.COMPLETED,
+              },
             },
-            { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } }
+            { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } },
           ]),
           this.sessionModel
             .findOne({ serviceId: new Types.ObjectId(serviceId) })
             .sort({ createdAt: -1 })
-            .select('createdAt')
+            .select('createdAt'),
         ]);
 
         return {
           ...service,
           totalBookings: sessions,
           totalRevenue: revenue[0]?.totalRevenue || 0,
-          lastBooked: lastBooking?.createdAt || null
+          lastBooked: lastBooking?.createdAt || null,
         };
-      })
+      }),
     );
 
     // Category breakdown
@@ -539,9 +699,9 @@ export class AdminService {
         $group: {
           _id: '$category',
           count: { $sum: 1 },
-          totalRevenue: { $sum: 0 } // Will calculate separately
-        }
-      }
+          totalRevenue: { $sum: 0 }, // Will calculate separately
+        },
+      },
     ]);
 
     // Get revenue for each category
@@ -550,21 +710,21 @@ export class AdminService {
       {
         $group: {
           _id: '$category',
-          totalRevenue: { $sum: '$totalAmount' }
-        }
-      }
+          totalRevenue: { $sum: '$totalAmount' },
+        },
+      },
     ]);
 
     const categoryRevenueMap = {};
-    categoryRevenue.forEach(cat => {
+    categoryRevenue.forEach((cat) => {
       categoryRevenueMap[cat._id] = cat.totalRevenue;
     });
 
     const categoryStats = {};
-    categoryBreakdown.forEach(cat => {
+    categoryBreakdown.forEach((cat) => {
       categoryStats[cat._id] = {
         count: cat.count,
-        totalRevenue: categoryRevenueMap[cat._id] || 0
+        totalRevenue: categoryRevenueMap[cat._id] || 0,
       };
     });
 
@@ -574,18 +734,18 @@ export class AdminService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       },
-      categoryBreakdown: categoryStats
+      categoryBreakdown: categoryStats,
     };
   }
 
   async getSessionManagement(
-    page = 1, 
-    limit = 50, 
-    status?: string, 
-    dateFrom?: string, 
-    dateTo?: string
+    page = 1,
+    limit = 50,
+    status?: string,
+    dateFrom?: string,
+    dateTo?: string,
   ) {
     const skip = (page - 1) * limit;
     const query: any = {};
@@ -614,13 +774,13 @@ export class AdminService {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.sessionModel.countDocuments(query)
+      this.sessionModel.countDocuments(query),
     ]);
 
-    const sessionsWithDetails = sessions.map(session => ({
+    const sessionsWithDetails = sessions.map((session) => ({
       ...session,
       platformCommission: session.totalAmount * 0.1,
-      providerEarning: session.totalAmount * 0.9
+      providerEarning: session.totalAmount * 0.9,
     }));
 
     return {
@@ -629,8 +789,8 @@ export class AdminService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -642,9 +802,9 @@ export class AdminService {
         $group: {
           _id: null,
           totalRevenue: { $sum: '$totalAmount' },
-          sessionCount: { $sum: 1 }
-        }
-      }
+          sessionCount: { $sum: 1 },
+        },
+      },
     ]);
 
     const totalRevenue = revenueData[0]?.totalRevenue || 0;
@@ -655,11 +815,15 @@ export class AdminService {
     let groupByFormat;
     switch (period) {
       case 'daily':
-        groupByFormat = { $dateToString: { format: '%Y-%m-%d', date: '$sessionDate' } };
+        groupByFormat = {
+          $dateToString: { format: '%Y-%m-%d', date: '$sessionDate' },
+        };
         break;
       case 'monthly':
       default:
-        groupByFormat = { $dateToString: { format: '%Y-%m', date: '$sessionDate' } };
+        groupByFormat = {
+          $dateToString: { format: '%Y-%m', date: '$sessionDate' },
+        };
         break;
     }
 
@@ -669,11 +833,11 @@ export class AdminService {
         $group: {
           _id: groupByFormat,
           revenue: { $sum: '$totalAmount' },
-          sessions: { $sum: 1 }
-        }
+          sessions: { $sum: 1 },
+        },
       },
       { $sort: { _id: 1 } },
-      { $limit: 12 } // Last 12 periods
+      { $limit: 12 }, // Last 12 periods
     ]);
 
     // Revenue by category
@@ -683,10 +847,10 @@ export class AdminService {
         $group: {
           _id: '$category',
           revenue: { $sum: '$totalAmount' },
-          sessions: { $sum: 1 }
-        }
+          sessions: { $sum: 1 },
+        },
       },
-      { $sort: { revenue: -1 } }
+      { $sort: { revenue: -1 } },
     ]);
 
     // Top earning providers
@@ -696,11 +860,11 @@ export class AdminService {
         $group: {
           _id: '$providerId',
           totalEarnings: { $sum: { $multiply: ['$totalAmount', 0.9] } },
-          totalSessions: { $sum: 1 }
-        }
+          totalSessions: { $sum: 1 },
+        },
       },
       { $sort: { totalEarnings: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     const topEarningProvidersWithDetails = await Promise.all(
@@ -708,54 +872,54 @@ export class AdminService {
         const user = await this.userModel
           .findById(provider._id)
           .select('fullName email');
-        
+
         return {
           providerId: provider._id,
           fullName: user?.fullName || 'Unknown',
           email: user?.email || '',
           totalEarnings: provider.totalEarnings,
-          totalSessions: provider.totalSessions
+          totalSessions: provider.totalSessions,
         };
-      })
+      }),
     );
 
     // Pending payments calculation
     const pendingPayments = await this.sessionModel.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           status: SessionStatus.COMPLETED,
           // Add any payment processing logic here
-        } 
+        },
       },
       {
         $group: {
           _id: null,
           totalAmount: { $sum: { $multiply: ['$totalAmount', 0.9] } },
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     return {
       totalRevenue,
       platformCommission,
       providerEarnings,
-      revenueByPeriod: revenueByPeriod.map(item => ({
+      revenueByPeriod: revenueByPeriod.map((item) => ({
         period: item._id,
         revenue: item.revenue,
         commission: item.revenue * 0.1,
-        sessions: item.sessions
+        sessions: item.sessions,
       })),
-      revenueByCategory: revenueByCategory.map(cat => ({
+      revenueByCategory: revenueByCategory.map((cat) => ({
         category: cat._id,
         revenue: cat.revenue,
-        sessions: cat.sessions
+        sessions: cat.sessions,
       })),
       topEarningProviders: topEarningProvidersWithDetails,
       pendingPayments: {
         totalAmount: pendingPayments[0]?.totalAmount || 0,
-        providerCount: pendingPayments[0]?.count || 0
-      }
+        providerCount: pendingPayments[0]?.count || 0,
+      },
     };
   }
 
@@ -767,41 +931,41 @@ export class AdminService {
     const sessionTrends = await this.sessionModel.aggregate([
       {
         $match: {
-          createdAt: { $gte: startDate }
-        }
+          createdAt: { $gte: startDate },
+        },
       },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
           sessions: { $sum: 1 },
-          revenue: { 
+          revenue: {
             $sum: {
               $cond: [
                 { $eq: ['$status', SessionStatus.COMPLETED] },
                 '$totalAmount',
-                0
-              ]
-            }
-          }
-        }
+                0,
+              ],
+            },
+          },
+        },
       },
-      { $sort: { _id: 1 } }
+      { $sort: { _id: 1 } },
     ]);
 
     // User growth trends
     const userGrowth = await this.userModel.aggregate([
       {
         $match: {
-          createdAt: { $gte: startDate }
-        }
+          createdAt: { $gte: startDate },
+        },
       },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          newUsers: { $sum: 1 }
-        }
+          newUsers: { $sum: 1 },
+        },
       },
-      { $sort: { _id: 1 } }
+      { $sort: { _id: 1 } },
     ]);
 
     // Category performance trends
@@ -809,41 +973,46 @@ export class AdminService {
       {
         $match: {
           status: SessionStatus.COMPLETED,
-          createdAt: { $gte: startDate }
-        }
+          createdAt: { $gte: startDate },
+        },
       },
       {
         $group: {
           _id: '$category',
           sessions: { $sum: 1 },
-          revenue: { $sum: '$totalAmount' }
-        }
-      }
+          revenue: { $sum: '$totalAmount' },
+        },
+      },
     ]);
 
     return {
-      sessionTrends: sessionTrends.map(trend => ({
+      sessionTrends: sessionTrends.map((trend) => ({
         date: trend._id,
         sessions: trend.sessions,
-        revenue: trend.revenue
+        revenue: trend.revenue,
       })),
-      userGrowth: userGrowth.map(growth => ({
+      userGrowth: userGrowth.map((growth) => ({
         date: growth._id,
-        newUsers: growth.newUsers
+        newUsers: growth.newUsers,
       })),
       categoryPerformance: categoryPerformance.reduce((acc, cat) => {
         acc[cat._id] = {
           sessions: cat.sessions,
           revenue: cat.revenue,
           growth: 0, // Calculate growth based on previous period if needed
-          trend: cat.revenue > 0 ? 'up' : 'neutral'
+          trend: cat.revenue > 0 ? 'up' : 'neutral',
         };
         return acc;
-      }, {})
+      }, {}),
     };
   }
 
-  async getReviewsManagement(page = 1, limit = 50, rating?: number, status?: string) {
+  async getReviewsManagement(
+    page = 1,
+    limit = 50,
+    rating?: number,
+    status?: string,
+  ) {
     const skip = (page - 1) * limit;
     const query: any = {};
 
@@ -864,7 +1033,7 @@ export class AdminService {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.reviewModel.countDocuments(query)
+      this.reviewModel.countDocuments(query),
     ]);
 
     // Rating statistics
@@ -875,15 +1044,15 @@ export class AdminService {
           averageRating: { $avg: '$rating' },
           totalReviews: { $sum: 1 },
           ratingDistribution: {
-            $push: '$rating'
-          }
-        }
-      }
+            $push: '$rating',
+          },
+        },
+      },
     ]);
 
-    let ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     if (ratingStats[0]?.ratingDistribution) {
-      ratingStats[0].ratingDistribution.forEach(rating => {
+      ratingStats[0].ratingDistribution.forEach((rating) => {
         ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
       });
     }
@@ -894,13 +1063,345 @@ export class AdminService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       },
       ratingStats: {
         averageRating: ratingStats[0]?.averageRating || 0,
         totalReviews: ratingStats[0]?.totalReviews || 0,
-        ratingDistribution
-      }
+        ratingDistribution,
+      },
     };
+  }
+
+  async getPendingProviders(page: number, limit: number): Promise<PendingProvidersResponseDto> {
+    const skip = (page - 1) * limit;
+
+    // Get all provider counts for summary
+    const [pendingProviders, counts, total] = await Promise.all([
+      this.userModel
+        .find({
+          role: UserRole.PROVIDER,
+          'providerProfile.status': ProviderStatus.PENDING_APPROVAL,
+        })
+        .select('fullName email phoneNumber providerProfile createdAt updatedAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.userModel.aggregate([
+        { $match: { role: UserRole.PROVIDER } },
+        {
+          $group: {
+            _id: '$providerProfile.status',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      this.userModel.countDocuments({
+        role: UserRole.PROVIDER,
+        'providerProfile.status': ProviderStatus.PENDING_APPROVAL,
+      }),
+    ]);
+
+    // Process counts for summary
+    const summary = {
+      totalPending: 0,
+      totalApproved: 0,
+      totalRejected: 0,
+      totalSuspended: 0,
+    };
+
+    counts.forEach((item) => {
+      switch (item._id) {
+        case ProviderStatus.PENDING_APPROVAL:
+          summary.totalPending = item.count;
+          break;
+        case ProviderStatus.ACTIVE:
+          summary.totalApproved = item.count;
+          break;
+        case ProviderStatus.INACTIVE:
+          summary.totalRejected = item.count;
+          break;
+        case ProviderStatus.SUSPENDED:
+          summary.totalSuspended = item.count;
+          break;
+      }
+    });
+
+    // Transform providers data
+    const providers: ProviderListResponseDto[] = pendingProviders.map((provider) => ({
+      id: (provider._id as Types.ObjectId).toString(),
+      fullName: provider.fullName,
+      email: provider.email,
+      phoneNumber: provider.phoneNumber,
+      status: provider.providerProfile?.status || ProviderStatus.PENDING_APPROVAL,
+      serviceCategories: provider.providerProfile?.serviceCategories || [],
+      serviceAreas: provider.providerProfile?.serviceAreas || [],
+      experienceLevel: provider.providerProfile?.experienceLevel || '',
+      averageRating: provider.providerProfile?.averageRating || 0,
+      totalReviews: provider.providerProfile?.totalReviews || 0,
+      createdAt: (provider as any).createdAt,
+      updatedAt: (provider as any).updatedAt,
+    }));
+
+    return {
+      providers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      summary,
+    };
+  }
+
+  async getProviderForReview(providerId: string) {
+    const provider = await this.userModel
+      .findOne({
+        _id: providerId,
+        role: UserRole.PROVIDER,
+      })
+      .select('-password')
+      .exec();
+
+    if (!provider) {
+      throw new NotFoundException(`Provider with ID "${providerId}" not found`);
+    }
+
+    // Get additional data for review
+    const [services, availability, reviews] = await Promise.all([
+      this.serviceModel
+        .find({ providerId })
+        .select('title description category pricePerHour status')
+        .exec(),
+      this.availabilityModel
+        .find({ providerId })
+        .select('dayOfWeek timeSlots')
+        .exec(),
+      this.reviewModel
+        .find({ providerId })
+        .populate('reviewerId', 'fullName')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .exec(),
+    ]);
+
+    return {
+      provider,
+      services,
+      availability,
+      reviews,
+      profileCompleteness: this.calculateProfileCompleteness(provider.providerProfile),
+    };
+  }
+
+  async approveProvider(
+    providerId: string,
+    adminId: string,
+    approveDto: ApproveProviderDto,
+  ): Promise<ProviderValidationResponseDto> {
+    const provider = await this.userModel.findById(providerId).exec();
+
+    if (!provider || provider.role !== UserRole.PROVIDER) {
+      throw new NotFoundException(`Provider with ID "${providerId}" not found`);
+    }
+
+    if (provider.providerProfile?.status !== ProviderStatus.PENDING_APPROVAL) {
+      throw new BadRequestException(
+        `Provider cannot be approved. Current status: ${provider.providerProfile?.status}`,
+      );
+    }
+
+    // Update provider status
+    const updatedProvider = await this.userModel
+      .findByIdAndUpdate(
+        providerId,
+        {
+          'providerProfile.status': ProviderStatus.ACTIVE,
+          'providerProfile.approvedAt': new Date(),
+          'providerProfile.approvedBy': adminId,
+          ...(approveDto.adminNotes && { 'providerProfile.adminNotes': approveDto.adminNotes }),
+        },
+        { new: true },
+      )
+      .exec();
+
+    return {
+      message: 'Provider approved successfully',
+      status: ProviderStatus.ACTIVE,
+      providerId,
+      adminId,
+      timestamp: new Date(),
+    };
+  }
+
+  async rejectProvider(
+    providerId: string,
+    adminId: string,
+    rejectDto: RejectProviderDto,
+  ): Promise<ProviderValidationResponseDto> {
+    const provider = await this.userModel.findById(providerId).exec();
+
+    if (!provider || provider.role !== UserRole.PROVIDER) {
+      throw new NotFoundException(`Provider with ID "${providerId}" not found`);
+    }
+
+    if (provider.providerProfile?.status !== ProviderStatus.PENDING_APPROVAL) {
+      throw new BadRequestException(
+        `Provider cannot be rejected. Current status: ${provider.providerProfile?.status}`,
+      );
+    }
+
+    // Update provider status
+    const updatedProvider = await this.userModel
+      .findByIdAndUpdate(
+        providerId,
+        {
+          'providerProfile.status': ProviderStatus.INACTIVE,
+          'providerProfile.rejectedAt': new Date(),
+          'providerProfile.rejectedBy': adminId,
+          'providerProfile.rejectionReason': rejectDto.rejectionReason,
+          ...(rejectDto.adminNotes && { 'providerProfile.adminNotes': rejectDto.adminNotes }),
+        },
+        { new: true },
+      )
+      .exec();
+
+    return {
+      message: 'Provider rejected successfully',
+      status: ProviderStatus.INACTIVE,
+      providerId,
+      adminId,
+      timestamp: new Date(),
+    };
+  }
+
+  async updateProviderStatus(
+    providerId: string,
+    adminId: string,
+    updateStatusDto: UpdateProviderStatusDto,
+  ): Promise<ProviderValidationResponseDto> {
+    const provider = await this.userModel.findById(providerId).exec();
+
+    if (!provider || provider.role !== UserRole.PROVIDER) {
+      throw new NotFoundException(`Provider with ID "${providerId}" not found`);
+    }
+
+    const currentStatus = provider.providerProfile?.status;
+    const newStatus = updateStatusDto.status;
+
+    // Validate status transition
+    const validTransitions = this.getValidStatusTransitions(currentStatus);
+    if (!validTransitions.includes(newStatus)) {
+      throw new BadRequestException(
+        `Invalid status transition from ${currentStatus} to ${newStatus}`,
+      );
+    }
+
+    // Update provider status
+    const updateFields: any = {
+      'providerProfile.status': newStatus,
+      'providerProfile.lastStatusChange': new Date(),
+      'providerProfile.lastStatusChangedBy': adminId,
+    };
+
+    if (updateStatusDto.reason) {
+      updateFields['providerProfile.statusChangeReason'] = updateStatusDto.reason;
+    }
+
+    if (updateStatusDto.adminNotes) {
+      updateFields['providerProfile.adminNotes'] = updateStatusDto.adminNotes;
+    }
+
+    const updatedProvider = await this.userModel
+      .findByIdAndUpdate(providerId, updateFields, { new: true })
+      .exec();
+
+    return {
+      message: `Provider status updated to ${newStatus}`,
+      status: newStatus,
+      providerId,
+      adminId,
+      timestamp: new Date(),
+    };
+  }
+
+  private calculateProfileCompleteness(providerProfile?: any): {
+    completeness: number;
+    missingFields: string[];
+  } {
+    if (!providerProfile) {
+      return {
+        completeness: 0,
+        missingFields: ['serviceCategories', 'serviceAreas', 'serviceRadius', 'experienceLevel'],
+      };
+    }
+
+    const requiredFields = [
+      'serviceCategories',
+      'serviceAreas',
+      'serviceRadius',
+      'experienceLevel',
+    ];
+    const optionalFields = ['certifications', 'portfolio', 'bio'];
+
+    let completedRequired = 0;
+    let completedOptional = 0;
+    const missingFields: string[] = [];
+
+    // Check required fields
+    requiredFields.forEach((field) => {
+      if (field === 'serviceCategories' || field === 'serviceAreas') {
+        if (providerProfile[field]?.length > 0) {
+          completedRequired++;
+        } else {
+          missingFields.push(field);
+        }
+      } else if (providerProfile[field]) {
+        completedRequired++;
+      } else {
+        missingFields.push(field);
+      }
+    });
+
+    // Check optional fields
+    optionalFields.forEach((field) => {
+      if (field === 'certifications' || field === 'portfolio') {
+        if (providerProfile[field]?.length > 0) {
+          completedOptional++;
+        }
+      } else if (providerProfile[field]) {
+        completedOptional++;
+      }
+    });
+
+    // Calculate completeness percentage
+    const requiredWeight = 0.8; // 80% weight for required fields
+    const optionalWeight = 0.2; // 20% weight for optional fields
+
+    const requiredScore = (completedRequired / requiredFields.length) * requiredWeight;
+    const optionalScore = (completedOptional / optionalFields.length) * optionalWeight;
+    const completeness = Math.round((requiredScore + optionalScore) * 100);
+
+    return {
+      completeness,
+      missingFields,
+    };
+  }
+
+  private getValidStatusTransitions(currentStatus?: ProviderStatus): ProviderStatus[] {
+    switch (currentStatus) {
+      case ProviderStatus.PENDING_APPROVAL:
+        return [ProviderStatus.ACTIVE, ProviderStatus.INACTIVE];
+      case ProviderStatus.ACTIVE:
+        return [ProviderStatus.SUSPENDED, ProviderStatus.INACTIVE];
+      case ProviderStatus.INACTIVE:
+        return [ProviderStatus.ACTIVE, ProviderStatus.PENDING_APPROVAL];
+      case ProviderStatus.SUSPENDED:
+        return [ProviderStatus.ACTIVE, ProviderStatus.INACTIVE];
+      default:
+        return [ProviderStatus.PENDING_APPROVAL];
+    }
   }
 }

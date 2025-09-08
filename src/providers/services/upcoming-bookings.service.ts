@@ -44,7 +44,9 @@ export class UpcomingBookingsService {
     const upcomingBookings = await this.sessionModel
       .find({
         providerId: providerObjectId,
-        status: { $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT] },
+        status: {
+          $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT],
+        },
         sessionDate: { $gte: now, $lte: lookAheadDate },
       })
       .populate('serviceId', 'title category')
@@ -80,7 +82,9 @@ export class UpcomingBookingsService {
       {
         $match: {
           providerId,
-          status: { $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT] },
+          status: {
+            $in: [SessionStatus.CONFIRMED, SessionStatus.PENDING_ASSIGNMENT],
+          },
           sessionDate: { $gte: startDate, $lte: endDate },
         },
       },
@@ -131,7 +135,8 @@ export class UpcomingBookingsService {
         (session.serviceId as any)?.title ||
         session.serviceName ||
         'Unknown Service',
-      category: (session.serviceId as any)?.category || session.category || 'other',
+      category:
+        (session.serviceId as any)?.category || session.category || 'other',
     };
 
     // Extract seeker information

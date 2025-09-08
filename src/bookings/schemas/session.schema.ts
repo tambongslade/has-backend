@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { ServiceCategory, CameroonProvince } from '../../services/schemas/service.schema';
+import {
+  ServiceCategory,
+  CameroonProvince,
+} from '../../services/schemas/service.schema';
 
 export type SessionDocument = Session &
   Document & {
@@ -123,6 +126,12 @@ export class Session {
 
   @Prop()
   serviceAddress?: string; // Specific address within the province
+
+  @Prop()
+  serviceLatitude?: number; // GPS latitude coordinate
+
+  @Prop()
+  serviceLongitude?: number; // GPS longitude coordinate
 
   // Review system
   @Prop({ min: 1, max: 5 })

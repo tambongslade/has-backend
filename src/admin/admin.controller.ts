@@ -7,6 +7,8 @@ import {
   DefaultValuePipe,
   Patch,
   Body,
+  Param,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,11 +16,20 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 import { AdminService } from './admin.service';
 import { UpdateUserStatusDto } from './dto/admin-auth.dto';
+import {
+  ApproveProviderDto,
+  RejectProviderDto,
+  UpdateProviderStatusDto,
+  ProviderValidationResponseDto,
+  PendingProvidersResponseDto,
+} from './dto/provider-validation.dto';
 
 @ApiTags('Admin Dashboard')
 @Controller({ path: 'admin', version: '1' })
@@ -189,7 +200,12 @@ export class AdminController {
     @Query('category') category?: string,
     @Query('status') status?: string,
   ) {
-    return this.adminService.getServiceManagement(page, limit, category, status);
+    return this.adminService.getServiceManagement(
+      page,
+      limit,
+      category,
+      status,
+    );
   }
 
   @Get('sessions')
@@ -216,7 +232,15 @@ export class AdminController {
     required: false,
     type: String,
     description: 'Filter by session status',
-    enum: ['all', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'rejected'],
+    enum: [
+      'all',
+      'pending',
+      'confirmed',
+      'in_progress',
+      'completed',
+      'cancelled',
+      'rejected',
+    ],
     example: 'all',
   })
   @ApiQuery({
@@ -244,7 +268,13 @@ export class AdminController {
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
   ) {
-    return this.adminService.getSessionManagement(page, limit, status, dateFrom, dateTo);
+    return this.adminService.getSessionManagement(
+      page,
+      limit,
+      status,
+      dateFrom,
+      dateTo,
+    );
   }
 
   @Get('financials/overview')
@@ -347,6 +377,195 @@ export class AdminController {
     return this.adminService.getReviewsManagement(page, limit, rating, status);
   }
 
+  @Get('providers/pending')
+  @ApiOperation({
+    summary: 'Get pending providers for approval',
+    description: 'Get paginated list of providers waiting for admin approval',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+    example: 20,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pending providers retrieved successfully',
+    type: PendingProvidersResponseDto,
+  })
+  async getPendingProviders(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ): Promise<PendingProvidersResponseDto> {
+    return this.adminService.getPendingProviders(page, limit);
+  }
+
+  @Get('providers/:id')
+  @ApiOperation({
+    summary: 'Get provider details for review',
+    description: 'Get detailed provider information for approval review',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Provider ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider details retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider not found',
+  })
+  async getProviderForReview(@Param('id') providerId: string) {
+    return this.adminService.getProviderForReview(providerId);
+  }
+
+  @Patch('providers/:id/approve')
+  @ApiOperation({
+    summary: 'Approve a provider',
+    description: 'Approve a provider and change their status to active',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Provider ID',
+  })
+  @ApiBody({
+    type: ApproveProviderDto,
+    description: 'Approval details',
+    examples: {
+      example1: {
+        summary: 'Approve provider',
+        value: {
+          adminNotes: 'Profile reviewed and approved. All requirements met.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider approved successfully',
+    type: ProviderValidationResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Provider cannot be approved (invalid status)',
+  })
+  async approveProvider(
+    @Param('id') providerId: string,
+    @Body() approveDto: ApproveProviderDto,
+    @Request() req: any,
+  ): Promise<ProviderValidationResponseDto> {
+    return this.adminService.approveProvider(providerId, req.user.id, approveDto);
+  }
+
+  @Patch('providers/:id/reject')
+  @ApiOperation({
+    summary: 'Reject a provider',
+    description: 'Reject a provider and change their status to inactive',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Provider ID',
+  })
+  @ApiBody({
+    type: RejectProviderDto,
+    description: 'Rejection details',
+    examples: {
+      example1: {
+        summary: 'Reject provider',
+        value: {
+          rejectionReason: 'Incomplete certifications. Please provide valid professional certifications.',
+          adminNotes: 'Reviewed on 2024-12-16. Missing required certifications.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider rejected successfully',
+    type: ProviderValidationResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Provider cannot be rejected (invalid status)',
+  })
+  async rejectProvider(
+    @Param('id') providerId: string,
+    @Body() rejectDto: RejectProviderDto,
+    @Request() req: any,
+  ): Promise<ProviderValidationResponseDto> {
+    return this.adminService.rejectProvider(providerId, req.user.id, rejectDto);
+  }
+
+  @Patch('providers/:id/status')
+  @ApiOperation({
+    summary: 'Update provider status',
+    description: 'Update provider status (suspend, reactivate, etc.)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Provider ID',
+  })
+  @ApiBody({
+    type: UpdateProviderStatusDto,
+    description: 'Status update details',
+    examples: {
+      example1: {
+        summary: 'Suspend provider',
+        value: {
+          status: 'suspended',
+          reason: 'Policy violations reported by multiple users.',
+          adminNotes: 'Suspended pending investigation.',
+        },
+      },
+      example2: {
+        summary: 'Reactivate provider',
+        value: {
+          status: 'active',
+          reason: 'Investigation completed. Provider cleared.',
+          adminNotes: 'Reactivated after successful appeal.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider status updated successfully',
+    type: ProviderValidationResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid status transition',
+  })
+  async updateProviderStatus(
+    @Param('id') providerId: string,
+    @Body() updateStatusDto: UpdateProviderStatusDto,
+    @Request() req: any,
+  ): Promise<ProviderValidationResponseDto> {
+    return this.adminService.updateProviderStatus(providerId, req.user.id, updateStatusDto);
+  }
+
   @Get('system/health')
   @ApiOperation({
     summary: 'Get system health status',
@@ -374,7 +593,8 @@ export class AdminController {
   @Get('logs/activity')
   @ApiOperation({
     summary: 'Get activity logs',
-    description: 'Get system activity logs (placeholder for future implementation)',
+    description:
+      'Get system activity logs (placeholder for future implementation)',
   })
   @ApiQuery({
     name: 'page',

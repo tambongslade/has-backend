@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ServiceCategory, CameroonProvince } from '../../services/schemas/service.schema';
+import {
+  ServiceCategory,
+  CameroonProvince,
+} from '../../services/schemas/service.schema';
 
 export class AvailableProviderDto {
   @ApiProperty({

@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { ServiceCategory, CameroonProvince } from '../../services/schemas/service.schema';
+import {
+  ServiceCategory,
+  CameroonProvince,
+} from '../../services/schemas/service.schema';
 
 export type UserDocument = User & Document;
 
@@ -26,17 +29,17 @@ export enum ProviderStatus {
 @Schema()
 export class ProviderProfile {
   // Service capabilities
-  @Prop({ 
-    type: [String], 
-    enum: ServiceCategory, 
-    default: [] 
+  @Prop({
+    type: [String],
+    enum: ServiceCategory,
+    default: [],
   })
   serviceCategories: ServiceCategory[]; // What services they can provide
 
-  @Prop({ 
-    type: [String], 
-    enum: CameroonProvince, 
-    default: [] 
+  @Prop({
+    type: [String],
+    enum: CameroonProvince,
+    default: [],
   })
   serviceAreas: CameroonProvince[]; // Areas they serve
 
@@ -145,7 +148,8 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-export const ProviderProfileSchema = SchemaFactory.createForClass(ProviderProfile);
+export const ProviderProfileSchema =
+  SchemaFactory.createForClass(ProviderProfile);
 
 // Index for geospatial queries (provider location tracking)
 UserSchema.index({ 'providerProfile.currentLocation': '2dsphere' });

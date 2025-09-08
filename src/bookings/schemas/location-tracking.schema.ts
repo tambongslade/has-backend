@@ -89,7 +89,8 @@ export class LocationTracking {
   accuracy?: number; // GPS accuracy in meters
 }
 
-export const LocationTrackingSchema = SchemaFactory.createForClass(LocationTracking);
+export const LocationTrackingSchema =
+  SchemaFactory.createForClass(LocationTracking);
 
 // Create geospatial indexes
 LocationTrackingSchema.index({ currentLocation: '2dsphere' });

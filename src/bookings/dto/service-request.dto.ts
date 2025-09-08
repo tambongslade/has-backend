@@ -12,7 +12,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ServiceCategory, CameroonProvince } from '../../services/schemas/service.schema';
+import {
+  ServiceCategory,
+  CameroonProvince,
+} from '../../services/schemas/service.schema';
 import { Type } from 'class-transformer';
 
 export class LocationDto {

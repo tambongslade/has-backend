@@ -148,10 +148,7 @@ export class ProvidersController {
     @Query() query: UpcomingBookingsQueryDto,
     @Request() req,
   ): Promise<UpcomingBookingsDto> {
-    return this.upcomingBookingsService.getUpcomingBookings(
-      req.user.id,
-      query,
-    );
+    return this.upcomingBookingsService.getUpcomingBookings(req.user.id, query);
   }
 
   // Helper method to get wallet data

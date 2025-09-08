@@ -16,6 +16,10 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateProviderReviewDto } from './dto/create-provider-review.dto';
 import {
+  SetupProviderProfileDto,
+  ProviderProfileResponseDto,
+} from './dto/setup-provider-profile.dto';
+import {
   ApiTags,
   ApiOperation,
   ApiResponse,
@@ -24,8 +28,10 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { User } from './schemas/user.schema';
+import { User, UserRole } from './schemas/user.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RoleGuard } from '../auth/guards/role.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('users')
 @Controller('users')
@@ -114,6 +120,95 @@ export class UsersController {
   })
   async getProviderProfile(@Param('id') id: string) {
     return this.usersService.getProviderProfile(id);
+  }
+
+  @Patch('profile/setup')
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(UserRole.PROVIDER)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Setup provider profile',
+    description:
+      'Complete provider onboarding by setting up profile information. Only accessible to users with PROVIDER role.',
+  })
+  @ApiBody({
+    type: SetupProviderProfileDto,
+    description: 'Provider profile setup data',
+    examples: {
+      example1: {
+        summary: 'Complete provider setup',
+        value: {
+          serviceCategories: ['cleaning', 'maintenance'],
+          serviceAreas: ['Centre', 'Littoral'],
+          serviceRadius: 25,
+          experienceLevel: 'intermediate',
+          certifications: ['Professional Cleaner Certification'],
+          portfolio: ['https://example.com/work1.jpg'],
+          bio: 'Professional cleaning service with 3+ years experience. Specializing in residential and office cleaning.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Provider profile setup completed successfully',
+    type: ProviderProfileResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Only providers can setup profile',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid profile data',
+  })
+  async setupProviderProfile(
+    @Request() req: any,
+    @Body() setupProfileDto: SetupProviderProfileDto,
+  ): Promise<ProviderProfileResponseDto> {
+    return this.usersService.setupProviderProfile(req.user.id, setupProfileDto);
+  }
+
+  @Get('profile/status')
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles(UserRole.PROVIDER)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Check provider profile completion status',
+    description:
+      'Check if the provider has completed their profile setup and get current status.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile status retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        isProfileComplete: { type: 'boolean' },
+        status: {
+          type: 'string',
+          enum: ['pending_approval', 'active', 'inactive', 'suspended'],
+        },
+        missingFields: { type: 'array', items: { type: 'string' } },
+        nextSteps: { type: 'array', items: { type: 'string' } },
+        message: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Only providers can check profile status',
+  })
+  async getProviderProfileStatus(@Request() req: any) {
+    return this.usersService.getProviderProfileStatus(req.user.id);
   }
 
   @Get(':id')

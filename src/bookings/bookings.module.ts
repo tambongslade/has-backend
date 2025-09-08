@@ -29,7 +29,11 @@ import { ConfigModule } from '../config/config.module';
     ConfigModule, // Import ConfigModule for session configuration
     forwardRef(() => WalletModule),
   ],
-  controllers: [AvailabilityController, SessionsController, ServiceRequestController],
+  controllers: [
+    AvailabilityController,
+    SessionsController,
+    ServiceRequestController,
+  ],
   providers: [AvailabilityService, SessionsService, ServiceRequestService],
   exports: [AvailabilityService, SessionsService],
 })

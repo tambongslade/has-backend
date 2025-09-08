@@ -6,12 +6,29 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument, UserRole, ProviderStatus } from '../users/schemas/user.schema';
-import { Service, ServiceDocument, ServiceCategory } from '../services/schemas/service.schema';
-import { Session, SessionDocument, SessionStatus } from './schemas/session.schema';
+import {
+  User,
+  UserDocument,
+  UserRole,
+  ProviderStatus,
+} from '../users/schemas/user.schema';
+import {
+  Service,
+  ServiceDocument,
+  ServiceCategory,
+} from '../services/schemas/service.schema';
+import {
+  Session,
+  SessionDocument,
+  SessionStatus,
+} from './schemas/session.schema';
 import { AvailabilityService } from './availability.service';
 import { ServiceRequestDto } from './dto/service-request.dto';
-import { AvailableProvidersResponseDto, ServiceRequestInfoDto, AvailableProviderDto } from './dto/available-providers-response.dto';
+import {
+  AvailableProvidersResponseDto,
+  ServiceRequestInfoDto,
+  AvailableProviderDto,
+} from './dto/available-providers-response.dto';
 import { SessionConfigService } from '../config/session-config.service';
 
 export interface ServiceRequest {
@@ -73,7 +90,9 @@ export class ServiceRequestService {
       // Create a generic service template for this category
       genericService = new this.serviceModel({
         title: `${serviceRequestDto.category.charAt(0).toUpperCase() + serviceRequestDto.category.slice(1)} Service`,
-        description: serviceRequestDto.description || `Professional ${serviceRequestDto.category} service`,
+        description:
+          serviceRequestDto.description ||
+          `Professional ${serviceRequestDto.category} service`,
         category: serviceRequestDto.category,
         status: 'active',
         isAvailable: true,
@@ -103,7 +122,8 @@ export class ServiceRequestService {
     const savedSession = await session.save();
 
     return {
-      message: 'Service request submitted successfully. An admin will assign a provider to your request.',
+      message:
+        'Service request submitted successfully. An admin will assign a provider to your request.',
       requestId: (savedSession._id as Types.ObjectId).toString(),
       estimatedCost: pricingInfo.totalPrice,
     };
@@ -145,11 +165,12 @@ export class ServiceRequestService {
 
         if (!hasConflict) {
           // Calculate distance (simplified - in real app, use proper geolocation)
-          const coordinates = provider.providerProfile?.currentLocation?.coordinates || [0, 0];
-          const distance = this.calculateDistance(
-            serviceRequest.location,
-            [coordinates[0], coordinates[1]] as [number, number],
-          );
+          const coordinates = provider.providerProfile?.currentLocation
+            ?.coordinates || [0, 0];
+          const distance = this.calculateDistance(serviceRequest.location, [
+            coordinates[0],
+            coordinates[1],
+          ] as [number, number]);
 
           availableProviders.push({
             id: (provider._id as Types.ObjectId).toString(),
@@ -160,7 +181,8 @@ export class ServiceRequestService {
             totalReviews: provider.providerProfile?.totalReviews || 0,
             distance,
             bio: provider.providerProfile?.bio,
-            serviceCategories: provider.providerProfile?.serviceCategories || [],
+            serviceCategories:
+              provider.providerProfile?.serviceCategories || [],
             isAvailable: true,
             lastActive: provider.providerProfile?.lastLocationUpdate,
           });

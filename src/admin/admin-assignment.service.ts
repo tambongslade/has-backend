@@ -17,9 +17,15 @@ import {
   UserRole,
   ProviderStatus,
 } from '../users/schemas/user.schema';
-import { ServiceCategory, CameroonProvince } from '../services/schemas/service.schema';
+import {
+  ServiceCategory,
+  CameroonProvince,
+} from '../services/schemas/service.schema';
 import { AvailabilityService } from '../bookings/availability.service';
-import { RejectAssignmentDto, RejectAssignmentResponseDto } from './dto/reject-assignment.dto';
+import {
+  RejectAssignmentDto,
+  RejectAssignmentResponseDto,
+} from './dto/reject-assignment.dto';
 
 export interface ProviderFilterOptions {
   category?: ServiceCategory;
@@ -132,7 +138,8 @@ export class AdminAssignmentService {
     }
 
     if (filters.experienceLevel) {
-      providerQuery['providerProfile.experienceLevel'] = filters.experienceLevel;
+      providerQuery['providerProfile.experienceLevel'] =
+        filters.experienceLevel;
     }
 
     // Find providers
@@ -178,7 +185,8 @@ export class AdminAssignmentService {
 
     // Sort by rating and distance
     availableProviders.sort((a, b) => {
-      const ratingDiff = (b.profile?.averageRating || 0) - (a.profile?.averageRating || 0);
+      const ratingDiff =
+        (b.profile?.averageRating || 0) - (a.profile?.averageRating || 0);
       if (ratingDiff !== 0) return ratingDiff;
       return (a.distance || 0) - (b.distance || 0);
     });
@@ -224,14 +232,18 @@ export class AdminAssignmentService {
     }
 
     // Check if provider can handle this service category
-    if (!provider.providerProfile?.serviceCategories?.includes(session.category)) {
+    if (
+      !provider.providerProfile?.serviceCategories?.includes(session.category)
+    ) {
       throw new BadRequestException(
         'Provider does not offer this service category',
       );
     }
 
     // Check if provider serves this location
-    if (!provider.providerProfile?.serviceAreas?.includes(session.serviceLocation)) {
+    if (
+      !provider.providerProfile?.serviceAreas?.includes(session.serviceLocation)
+    ) {
       throw new BadRequestException(
         'Provider does not serve this service area',
       );

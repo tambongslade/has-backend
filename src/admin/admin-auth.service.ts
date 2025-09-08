@@ -15,21 +15,24 @@ export class AdminAuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateAdmin(email: string, password: string): Promise<AdminDocument | null> {
+  async validateAdmin(
+    email: string,
+    password: string,
+  ): Promise<AdminDocument | null> {
     const admin = await this.adminModel.findOne({ email, isActive: true });
-    
-    if (admin && await bcrypt.compare(password, admin.password)) {
+
+    if (admin && (await bcrypt.compare(password, admin.password))) {
       return admin;
     }
-    
+
     return null;
   }
 
   async login(loginDto: AdminLoginDto): Promise<AdminResponseDto> {
     const { email, password } = loginDto;
-    
+
     const admin = await this.validateAdmin(email, password);
-    
+
     if (!admin) {
       throw new UnauthorizedException('Invalid admin credentials');
     }
@@ -61,9 +64,13 @@ export class AdminAuthService {
     };
   }
 
-  async createAdmin(email: string, password: string, fullName: string): Promise<AdminDocument> {
+  async createAdmin(
+    email: string,
+    password: string,
+    fullName: string,
+  ): Promise<AdminDocument> {
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     const admin = new this.adminModel({
       email,
       password: hashedPassword,
@@ -81,7 +88,7 @@ export class AdminAuthService {
   async ensureDefaultAdmin(): Promise<void> {
     const adminEmail = 'admin@has.com';
     const existingAdmin = await this.findByEmail(adminEmail);
-    
+
     if (!existingAdmin) {
       await this.createAdmin(adminEmail, 'password123', 'HAS Administrator');
       this.logger.log('Default admin account created: admin@has.com');

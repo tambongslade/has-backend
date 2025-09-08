@@ -234,8 +234,9 @@ export class WalletService {
     );
 
     const confirmedSessions = pendingSessions.sessions.filter(
-      session => session.status === SessionStatus.CONFIRMED || 
-                 session.status === SessionStatus.IN_PROGRESS
+      (session) =>
+        session.status === SessionStatus.CONFIRMED ||
+        session.status === SessionStatus.IN_PROGRESS,
     );
 
     const pendingAmount = confirmedSessions.reduce(

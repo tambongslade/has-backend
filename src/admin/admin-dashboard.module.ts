@@ -16,9 +16,18 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Session, SessionSchema } from '../bookings/schemas/session.schema';
 import { Service, ServiceSchema } from '../services/schemas/service.schema';
 import { Wallet, WalletSchema } from '../wallet/schemas/wallet.schema';
-import { Transaction, TransactionSchema } from '../wallet/schemas/transaction.schema';
-import { ProviderReview, ProviderReviewSchema } from '../users/schemas/provider-review.schema';
-import { Availability, AvailabilitySchema } from '../bookings/schemas/availability.schema';
+import {
+  Transaction,
+  TransactionSchema,
+} from '../wallet/schemas/transaction.schema';
+import {
+  ProviderReview,
+  ProviderReviewSchema,
+} from '../users/schemas/provider-review.schema';
+import {
+  Availability,
+  AvailabilitySchema,
+} from '../bookings/schemas/availability.schema';
 import { Admin, AdminSchema } from './schemas/admin.schema';
 import { BookingsModule } from '../bookings/bookings.module';
 
@@ -38,14 +47,26 @@ import { BookingsModule } from '../bookings/bookings.module';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES_IN', '7d') },
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '7d'),
+        },
       }),
       inject: [ConfigService],
     }),
     BookingsModule,
   ],
-  controllers: [AdminController, AdminAuthController, AdminAssignmentController],
-  providers: [AdminService, AdminAuthService, AdminSeederService, AdminGuard, AdminAssignmentService],
+  controllers: [
+    AdminController,
+    AdminAuthController,
+    AdminAssignmentController,
+  ],
+  providers: [
+    AdminService,
+    AdminAuthService,
+    AdminSeederService,
+    AdminGuard,
+    AdminAssignmentService,
+  ],
   exports: [AdminService, AdminAuthService, AdminGuard],
 })
 export class AdminDashboardModule {}

@@ -81,7 +81,6 @@ export class SessionsService {
       endTime,
     );
 
-
     if (!isProviderAvailable) {
       throw new ConflictException(
         'Provider is not available at the requested time',
@@ -95,7 +94,6 @@ export class SessionsService {
       startTime,
       endTime,
     );
-
 
     if (hasConflict) {
       throw new ConflictException(
@@ -197,7 +195,6 @@ export class SessionsService {
       this.sessionModel.countDocuments(query).exec(),
     ]);
 
-
     return {
       sessions: sessions.map((session) => this.mapToResponseDto(session)),
       pagination: {
@@ -266,13 +263,15 @@ export class SessionsService {
       const endTime = this.calculateEndTime(startTime, duration);
 
       // Check for conflicts (excluding current session)
-      const hasConflict = session.providerId && await this.checkSessionConflict(
-        session.providerId.toString(),
-        sessionDate,
-        startTime,
-        endTime,
-        id,
-      );
+      const hasConflict =
+        session.providerId &&
+        (await this.checkSessionConflict(
+          session.providerId.toString(),
+          sessionDate,
+          startTime,
+          endTime,
+          id,
+        ));
 
       if (hasConflict) {
         throw new ConflictException(
@@ -419,6 +418,22 @@ export class SessionsService {
   }
 
   private mapToResponseDto(session: SessionDocument): SessionResponseDto {
+    // Extract seeker information if populated
+    const seeker = (session as any).seekerId;
+    const seekerInfo = seeker && seeker.fullName ? {
+      fullName: seeker.fullName,
+      phoneNumber: seeker.phoneNumber,
+      email: seeker.email,
+    } : undefined;
+
+    // Extract location information
+    const serviceLocation = {
+      latitude: session.serviceLatitude,
+      longitude: session.serviceLongitude,
+      address: session.serviceAddress,
+      province: session.serviceLocation,
+    };
+
     return {
       id: (session._id as any).toString(),
       seekerId: session.seekerId.toString(),
@@ -445,6 +460,8 @@ export class SessionsService {
       providerReview: session.providerReview,
       createdAt: (session as any).createdAt,
       updatedAt: (session as any).updatedAt,
+      serviceLocation,
+      seeker: seekerInfo,
     };
   }
 

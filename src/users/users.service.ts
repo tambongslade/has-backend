@@ -7,10 +7,19 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument, UserRole } from './schemas/user.schema';
+import {
+  User,
+  UserDocument,
+  UserRole,
+  ProviderStatus,
+} from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateProviderReviewDto } from './dto/create-provider-review.dto';
+import {
+  SetupProviderProfileDto,
+  ProviderProfileResponseDto,
+} from './dto/setup-provider-profile.dto';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
 import {
   Availability,
@@ -554,5 +563,171 @@ export class UsersService {
       ...statistics.toObject(),
       message: 'Provider statistics retrieved successfully',
     };
+  }
+
+  async setupProviderProfile(
+    userId: string,
+    setupProfileDto: SetupProviderProfileDto,
+  ): Promise<ProviderProfileResponseDto> {
+    // Find user and verify they are a provider
+    const user = await this.userModel.findById(userId).exec();
+
+    if (!user) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+
+    if (user.role !== UserRole.PROVIDER) {
+      throw new ForbiddenException('Only providers can setup profile');
+    }
+
+    // Check if profile is already completed
+    const isAlreadySetup = this.isProviderProfileComplete(user.providerProfile);
+
+    // Setup provider profile data
+    const providerProfileData = {
+      serviceCategories: setupProfileDto.serviceCategories,
+      serviceAreas: setupProfileDto.serviceAreas,
+      serviceRadius: setupProfileDto.serviceRadius,
+      experienceLevel: setupProfileDto.experienceLevel,
+      certifications: setupProfileDto.certifications || [],
+      portfolio: setupProfileDto.portfolio || [],
+      bio: setupProfileDto.bio,
+      status: ProviderStatus.PENDING_APPROVAL,
+      averageRating: user.providerProfile?.averageRating || 0,
+      totalCompletedJobs: user.providerProfile?.totalCompletedJobs || 0,
+      totalReviews: user.providerProfile?.totalReviews || 0,
+      currentLocation: user.providerProfile?.currentLocation,
+      lastLocationUpdate: user.providerProfile?.lastLocationUpdate,
+      isOnDuty: user.providerProfile?.isOnDuty || false,
+    };
+
+    // Update user with provider profile
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { providerProfile: providerProfileData },
+        { new: true },
+      )
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException(`Failed to update user profile`);
+    }
+
+    // Determine next steps based on profile status
+    const nextSteps = this.getProviderNextSteps(
+      updatedUser.providerProfile?.status,
+    );
+
+    return {
+      message: isAlreadySetup
+        ? 'Provider profile updated successfully'
+        : 'Provider profile setup completed successfully',
+      status:
+        updatedUser.providerProfile?.status || ProviderStatus.PENDING_APPROVAL,
+      isProfileComplete: true,
+      nextSteps,
+    };
+  }
+
+  private isProviderProfileComplete(providerProfile?: any): boolean {
+    if (!providerProfile) return false;
+
+    return !!(
+      providerProfile.serviceCategories?.length &&
+      providerProfile.serviceAreas?.length &&
+      providerProfile.serviceRadius &&
+      providerProfile.experienceLevel
+    );
+  }
+
+  async getProviderProfileStatus(userId: string) {
+    // Find user and verify they are a provider
+    const user = await this.userModel.findById(userId).exec();
+
+    if (!user) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+
+    if (user.role !== UserRole.PROVIDER) {
+      throw new ForbiddenException('Only providers can check profile status');
+    }
+
+    const isComplete = this.isProviderProfileComplete(user.providerProfile);
+    const missingFields = this.getMissingProviderFields(user.providerProfile);
+    const status =
+      user.providerProfile?.status || ProviderStatus.PENDING_APPROVAL;
+    const nextSteps = this.getProviderNextSteps(status);
+
+    return {
+      isProfileComplete: isComplete,
+      status,
+      missingFields,
+      nextSteps,
+      message: isComplete
+        ? `Profile is complete and status is ${status}`
+        : 'Profile setup is incomplete',
+    };
+  }
+
+  private getMissingProviderFields(providerProfile?: any): string[] {
+    const missing: string[] = [];
+
+    if (!providerProfile) {
+      return [
+        'serviceCategories',
+        'serviceAreas',
+        'serviceRadius',
+        'experienceLevel',
+      ];
+    }
+
+    if (!providerProfile.serviceCategories?.length) {
+      missing.push('serviceCategories');
+    }
+    if (!providerProfile.serviceAreas?.length) {
+      missing.push('serviceAreas');
+    }
+    if (!providerProfile.serviceRadius) {
+      missing.push('serviceRadius');
+    }
+    if (!providerProfile.experienceLevel) {
+      missing.push('experienceLevel');
+    }
+
+    return missing;
+  }
+
+  private getProviderNextSteps(status?: ProviderStatus): string[] {
+    switch (status) {
+      case ProviderStatus.PENDING_APPROVAL:
+        return [
+          'Your profile is under review by our admin team',
+          'You will receive an email notification once approved',
+          'Complete your first service listing while waiting',
+          'Ensure your contact information is up to date',
+        ];
+      case ProviderStatus.ACTIVE:
+        return [
+          'Create your first service listing',
+          'Set your availability schedule',
+          'Upload portfolio images to showcase your work',
+          'Start accepting bookings from customers',
+        ];
+      case ProviderStatus.INACTIVE:
+        return [
+          'Update your profile information',
+          'Contact support to reactivate your account',
+          'Review and update your service categories',
+        ];
+      case ProviderStatus.SUSPENDED:
+        return [
+          'Your account is suspended',
+          'Contact support for assistance',
+          'Review terms of service',
+        ];
+      default:
+        return ['Complete your profile setup', 'Submit for admin approval'];
+    }
   }
 }

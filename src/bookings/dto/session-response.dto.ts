@@ -1,6 +1,53 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SessionStatus, PaymentStatus } from '../schemas/session.schema';
-import { ServiceCategory } from '../../services/schemas/service.schema';
+import { ServiceCategory, CameroonProvince } from '../../services/schemas/service.schema';
+
+export class SessionLocationDto {
+  @ApiPropertyOptional({
+    example: 4.0511,
+    description: 'Latitude coordinate of service location',
+  })
+  latitude?: number;
+
+  @ApiPropertyOptional({
+    example: 9.7679,
+    description: 'Longitude coordinate of service location',
+  })
+  longitude?: number;
+
+  @ApiPropertyOptional({
+    example: '123 Main Street, Douala, Cameroon',
+    description: 'Full address where service will be performed',
+  })
+  address?: string;
+
+  @ApiPropertyOptional({
+    enum: CameroonProvince,
+    example: CameroonProvince.LITTORAL,
+    description: 'Province where service will be performed',
+  })
+  province?: CameroonProvince;
+}
+
+export class SeekerInfoDto {
+  @ApiProperty({
+    example: 'John Doe',
+    description: 'Seeker full name',
+  })
+  fullName: string;
+
+  @ApiPropertyOptional({
+    example: '+237123456789',
+    description: 'Seeker phone number',
+  })
+  phoneNumber?: string;
+
+  @ApiPropertyOptional({
+    example: 'john.doe@example.com',
+    description: 'Seeker email address',
+  })
+  email?: string;
+}
 
 export class SessionResponseDto {
   @ApiProperty({
@@ -155,4 +202,16 @@ export class SessionResponseDto {
     description: 'Last update timestamp',
   })
   updatedAt: Date;
+
+  @ApiPropertyOptional({
+    type: SessionLocationDto,
+    description: 'Location where service will be performed',
+  })
+  serviceLocation?: SessionLocationDto;
+
+  @ApiPropertyOptional({
+    type: SeekerInfoDto,
+    description: 'Seeker information for provider contact',
+  })
+  seeker?: SeekerInfoDto;
 }

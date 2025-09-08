@@ -57,14 +57,18 @@ export class LocationTrackingService {
     // Only provider or admin can start tracking
     if (
       userRole !== UserRole.ADMIN &&
-      (userRole !== UserRole.PROVIDER || session.providerId?.toString() !== userId)
+      (userRole !== UserRole.PROVIDER ||
+        session.providerId?.toString() !== userId)
     ) {
       throw new ForbiddenException(
         'Only assigned provider or admin can start tracking',
       );
     }
 
-    if (session.status !== SessionStatus.CONFIRMED && session.status !== SessionStatus.IN_PROGRESS) {
+    if (
+      session.status !== SessionStatus.CONFIRMED &&
+      session.status !== SessionStatus.IN_PROGRESS
+    ) {
       throw new BadRequestException(
         'Can only track confirmed or in-progress sessions',
       );
@@ -77,7 +81,9 @@ export class LocationTrackingService {
     });
 
     if (existingTracking) {
-      throw new BadRequestException('Location tracking already active for this session');
+      throw new BadRequestException(
+        'Location tracking already active for this session',
+      );
     }
 
     // Create new tracking record
@@ -130,7 +136,9 @@ export class LocationTrackingService {
       .populate('sessionId');
 
     if (!tracking) {
-      throw new NotFoundException('Active location tracking not found for this session');
+      throw new NotFoundException(
+        'Active location tracking not found for this session',
+      );
     }
 
     // Only the assigned provider can update location
@@ -138,7 +146,9 @@ export class LocationTrackingService {
       userRole !== UserRole.ADMIN &&
       tracking.providerId.toString() !== userId
     ) {
-      throw new ForbiddenException('Only assigned provider can update location');
+      throw new ForbiddenException(
+        'Only assigned provider can update location',
+      );
     }
 
     // Update location
@@ -164,7 +174,7 @@ export class LocationTrackingService {
     // Auto-update status based on proximity
     if (updatedTracking && tracking.status === LocationStatus.ON_ROUTE) {
       const distanceToService = updatedTracking.distanceToDestination || 0;
-      
+
       // If within 100 meters of service location, mark as arrived
       if (distanceToService <= 100) {
         await this.markArrived(sessionId, userId, userRole);
@@ -205,7 +215,11 @@ export class LocationTrackingService {
   }
 
   // Mark service as started
-  async markServiceStarted(sessionId: string, userId: string, userRole: UserRole) {
+  async markServiceStarted(
+    sessionId: string,
+    userId: string,
+    userRole: UserRole,
+  ) {
     const tracking = await this.locationTrackingModel.findOne({
       sessionId: new Types.ObjectId(sessionId),
       isActive: true,
@@ -248,7 +262,9 @@ export class LocationTrackingService {
       userRole !== UserRole.ADMIN &&
       tracking.providerId.toString() !== userId
     ) {
-      throw new ForbiddenException('Only assigned provider can complete service');
+      throw new ForbiddenException(
+        'Only assigned provider can complete service',
+      );
     }
 
     const updatedTracking = await this.locationTrackingModel.findByIdAndUpdate(
@@ -278,7 +294,9 @@ export class LocationTrackingService {
     }
 
     if (session.seekerId.toString() !== userId) {
-      throw new ForbiddenException('Can only view tracking for your own sessions');
+      throw new ForbiddenException(
+        'Can only view tracking for your own sessions',
+      );
     }
 
     const tracking = await this.locationTrackingModel

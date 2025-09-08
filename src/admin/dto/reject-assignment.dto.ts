@@ -11,7 +11,8 @@ export class RejectAssignmentDto {
   reason: string;
 
   @ApiPropertyOptional({
-    example: 'Customer should try booking during weekdays for better availability',
+    example:
+      'Customer should try booking during weekdays for better availability',
     description: 'Optional admin notes about the rejection',
   })
   @IsString()
@@ -45,7 +46,8 @@ export class RejectAssignmentResponseDto {
   rejectionReason: string;
 
   @ApiPropertyOptional({
-    example: 'Customer should try booking during weekdays for better availability',
+    example:
+      'Customer should try booking during weekdays for better availability',
     description: 'Admin notes about the rejection',
   })
   adminNotes?: string;

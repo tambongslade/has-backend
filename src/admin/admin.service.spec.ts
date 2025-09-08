@@ -117,12 +117,20 @@ describe('AdminService - getDashboardOverview', () => {
       // recentProviders (chained after previous .find mock used for top providers)
       .mockReturnValueOnce(
         createChainableFind([
-          { fullName: 'New Electrician', createdAt: new Date(), role: UserRole.PROVIDER } as any,
+          {
+            fullName: 'New Electrician',
+            createdAt: new Date(),
+            role: UserRole.PROVIDER,
+          } as any,
         ]),
       );
     transactionModel.find.mockReturnValue(
       createChainableFind([
-        { transactionReference: 'PAE099', amount: 45_000, createdAt: new Date() } as any,
+        {
+          transactionReference: 'PAE099',
+          amount: 45_000,
+          createdAt: new Date(),
+        } as any,
       ]),
     );
 
@@ -186,4 +194,3 @@ describe('AdminService - getDashboardOverview', () => {
     expect(result.recentActivity.length).toBeGreaterThan(0);
   });
 });
-

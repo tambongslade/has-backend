@@ -18,14 +18,20 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { LocationTrackingService, LocationUpdate, StartTrackingRequest } from './location-tracking.service';
+import {
+  LocationTrackingService,
+  LocationUpdate,
+  StartTrackingRequest,
+} from './location-tracking.service';
 
 @ApiTags('Location Tracking')
 @Controller({ path: 'sessions', version: '1' })
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class LocationTrackingController {
-  constructor(private readonly locationTrackingService: LocationTrackingService) {}
+  constructor(
+    private readonly locationTrackingService: LocationTrackingService,
+  ) {}
 
   @Post(':sessionId/tracking/start')
   @ApiOperation({
@@ -40,7 +46,12 @@ export class LocationTrackingController {
     description: 'Tracking initialization data',
     schema: {
       type: 'object',
-      required: ['serviceLatitude', 'serviceLongitude', 'providerLatitude', 'providerLongitude'],
+      required: [
+        'serviceLatitude',
+        'serviceLongitude',
+        'providerLatitude',
+        'providerLongitude',
+      ],
       properties: {
         serviceLatitude: {
           type: 'number',
@@ -89,7 +100,8 @@ export class LocationTrackingController {
   @Put(':sessionId/tracking/location')
   @ApiOperation({
     summary: 'Update provider location',
-    description: 'Update current GPS coordinates during active session (Provider only)',
+    description:
+      'Update current GPS coordinates during active session (Provider only)',
   })
   @ApiParam({
     name: 'sessionId',
@@ -144,7 +156,8 @@ export class LocationTrackingController {
   @Put(':sessionId/tracking/arrived')
   @ApiOperation({
     summary: 'Mark provider as arrived',
-    description: 'Mark that provider has arrived at service location (Provider only)',
+    description:
+      'Mark that provider has arrived at service location (Provider only)',
   })
   @ApiParam({
     name: 'sessionId',
@@ -192,7 +205,8 @@ export class LocationTrackingController {
   @Put(':sessionId/tracking/complete')
   @ApiOperation({
     summary: 'Complete service and stop tracking',
-    description: 'Mark service as completed and stop GPS tracking (Provider only)',
+    description:
+      'Mark service as completed and stop GPS tracking (Provider only)',
   })
   @ApiParam({
     name: 'sessionId',
@@ -216,7 +230,8 @@ export class LocationTrackingController {
   @Get(':sessionId/tracking/seeker')
   @ApiOperation({
     summary: 'Get tracking info for seeker',
-    description: 'Get provider location and service status for seeker (Seeker only)',
+    description:
+      'Get provider location and service status for seeker (Seeker only)',
   })
   @ApiParam({
     name: 'sessionId',
@@ -230,7 +245,10 @@ export class LocationTrackingController {
     @Param('sessionId') sessionId: string,
     @Request() req: any,
   ) {
-    return this.locationTrackingService.getSeekerTracking(sessionId, req.user.id);
+    return this.locationTrackingService.getSeekerTracking(
+      sessionId,
+      req.user.id,
+    );
   }
 
   @Get(':sessionId/tracking/provider')
@@ -259,7 +277,8 @@ export class LocationTrackingController {
   @Put(':sessionId/tracking/stop')
   @ApiOperation({
     summary: 'Stop location tracking',
-    description: 'Emergency stop of location tracking (Provider, Seeker, or Admin)',
+    description:
+      'Emergency stop of location tracking (Provider, Seeker, or Admin)',
   })
   @ApiParam({
     name: 'sessionId',
