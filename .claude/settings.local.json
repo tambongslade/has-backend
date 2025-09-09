@@ -10,7 +10,8 @@
       "Bash(true)",
       "Bash(node:*)",
       "Bash(npm:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }
