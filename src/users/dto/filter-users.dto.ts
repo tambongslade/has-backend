@@ -91,35 +91,18 @@ export class AdminUserResponseDto {
   @ApiProperty({
     description: 'Provider profile details (only present for providers)',
     required: false,
-    type: 'object',
-    properties: {
-      serviceCategories: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['cleaning', 'maintenance'],
-      },
-      serviceAreas: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['Centre', 'Littoral'],
-      },
-      serviceRadius: { type: 'number', example: 25 },
-      experienceLevel: { type: 'string', example: 'intermediate' },
-      bio: { type: 'string', example: 'Professional cleaning service...' },
-      certifications: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['Professional Cleaner Certification'],
-      },
-      portfolio: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['https://example.com/work1.jpg'],
-      },
-      status: { type: 'string', example: 'pending_approval' },
-      averageRating: { type: 'number', example: 4.5 },
-      totalCompletedJobs: { type: 'number', example: 15 },
-      totalReviews: { type: 'number', example: 12 },
+    example: {
+      serviceCategories: ['cleaning', 'maintenance'],
+      serviceAreas: ['Centre', 'Littoral'],
+      serviceRadius: 25,
+      experienceLevel: 'intermediate',
+      bio: 'Professional cleaning service...',
+      certifications: ['Professional Cleaner Certification'],
+      portfolio: ['https://example.com/work1.jpg'],
+      status: 'pending_approval',
+      averageRating: 4.5,
+      totalCompletedJobs: 15,
+      totalReviews: 12,
     },
   })
   providerProfile?: {

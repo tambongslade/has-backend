@@ -100,14 +100,14 @@ export class UsersService {
 
     return {
       users: users.map(user => ({
-        id: user._id.toString(),
+        id: (user._id as any).toString(),
         email: user.email,
         fullName: user.fullName,
         phoneNumber: user.phoneNumber,
         role: user.role,
         isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+        createdAt: (user as any).createdAt,
+        updatedAt: (user as any).updatedAt,
         providerProfile: user.providerProfile ? {
           serviceCategories: user.providerProfile.serviceCategories,
           serviceAreas: user.providerProfile.serviceAreas,
@@ -827,7 +827,7 @@ export class UsersService {
     return {
       message: `User account ${isActive ? 'activated' : 'deactivated'} successfully`,
       user: {
-        id: updatedUser!._id.toString(),
+        id: (updatedUser!._id as any).toString(),
         email: updatedUser!.email,
         fullName: updatedUser!.fullName,
         isActive: updatedUser!.isActive,
