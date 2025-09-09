@@ -10,6 +10,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import * as bcrypt from 'bcrypt';
@@ -21,7 +22,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
+  async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
     // Check if user already exists
     const existingUser = await this.userModel.findOne({
       email: registerDto.email,
@@ -33,29 +34,24 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-    // Create user
+    // Create user with inactive status (requires admin activation)
     const user = new this.userModel({
       ...registerDto,
       password: hashedPassword,
+      isActive: false,
     });
 
     const savedUser = await user.save();
 
-    // Generate JWT token
-    const payload: JwtPayload = {
-      sub: (savedUser._id as any).toString(),
-      email: savedUser.email,
-    };
-    const accessToken = this.jwtService.sign(payload);
-
     return {
-      accessToken,
+      message: 'Account created successfully. Please wait for admin activation before logging in.',
       user: {
         id: (savedUser._id as any).toString(),
         email: savedUser.email,
         fullName: savedUser.fullName,
         phoneNumber: savedUser.phoneNumber,
         role: savedUser.role,
+        isActive: savedUser.isActive,
       },
     };
   }

@@ -132,7 +132,7 @@ export class User {
   })
   role?: UserRole | null;
 
-  @Prop({ default: true })
+  @Prop({ default: false })
   isActive: boolean;
 
   // Provider-specific profile (only populated if role is PROVIDER)

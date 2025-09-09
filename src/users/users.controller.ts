@@ -15,6 +15,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateProviderReviewDto } from './dto/create-provider-review.dto';
+import { FilterUsersDto, AdminUserResponseDto } from './dto/filter-users.dto';
 import {
   SetupProviderProfileDto,
   ProviderProfileResponseDto,
@@ -59,6 +60,91 @@ export class UsersController {
   })
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('admin/filtered')
+  @ApiOperation({
+    summary: 'Get users with filters (Admin)',
+    description:
+      'Retrieve users with filtering options including inactive accounts for admin review',
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by account activation status - use false to get inactive accounts',
+    example: false,
+  })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enum: UserRole,
+    description: 'Filter by user role',
+    example: UserRole.PROVIDER,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search users by name, email, or phone',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20, max: 50)',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Users retrieved successfully with full profile information',
+    schema: {
+      type: 'object',
+      properties: {
+        users: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/AdminUserResponseDto' },
+        },
+        pagination: {
+          type: 'object',
+          properties: {
+            total: { type: 'number' },
+            page: { type: 'number' },
+            limit: { type: 'number' },
+            totalPages: { type: 'number' },
+          },
+        },
+        filters: {
+          type: 'object',
+          properties: {
+            isActive: { type: 'boolean' },
+            role: { type: 'string' },
+            search: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  async getFilteredUsers(
+    @Query('isActive') isActive?: string,
+    @Query('role') role?: UserRole,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const filters: FilterUsersDto = {
+      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      role,
+      search,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? Math.min(parseInt(limit), 50) : 20,
+    };
+
+    return this.usersService.findUsersWithFilters(filters);
   }
 
   @Get('provider/all')
@@ -458,5 +544,57 @@ export class UsersController {
   })
   async getProviderStatistics(@Param('id') providerId: string) {
     return this.usersService.getProviderStatistics(providerId);
+  }
+
+  @Patch('admin/:id/activate')
+  @ApiOperation({
+    summary: 'Activate/Deactivate user account (Admin)',
+    description: 'Admin endpoint to activate or deactivate user accounts',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'User ID',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        isActive: {
+          type: 'boolean',
+          description: 'Set account activation status',
+          example: true,
+        },
+      },
+      required: ['isActive'],
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User activation status updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'User account activated successfully' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            email: { type: 'string' },
+            fullName: { type: 'string' },
+            isActive: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User not found',
+  })
+  async toggleUserActivation(
+    @Param('id') userId: string,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.usersService.toggleUserActivation(userId, isActive);
   }
 }

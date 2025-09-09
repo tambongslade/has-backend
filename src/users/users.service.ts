@@ -61,6 +61,83 @@ export class UsersService {
     return this.userModel.find().exec();
   }
 
+  async findUsersWithFilters(filters: any) {
+    const { isActive, role, search, page = 1, limit = 20 } = filters;
+    const query: any = {};
+
+    // Filter by active status
+    if (typeof isActive === 'boolean') {
+      query.isActive = isActive;
+    }
+
+    // Filter by role
+    if (role) {
+      query.role = role;
+    }
+
+    // Search functionality
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phoneNumber: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      this.userModel
+        .find(query)
+        .select('-password')
+        .populate('providerProfile')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec(),
+      this.userModel.countDocuments(query).exec(),
+    ]);
+
+    return {
+      users: users.map(user => ({
+        id: user._id.toString(),
+        email: user.email,
+        fullName: user.fullName,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        providerProfile: user.providerProfile ? {
+          serviceCategories: user.providerProfile.serviceCategories,
+          serviceAreas: user.providerProfile.serviceAreas,
+          serviceRadius: user.providerProfile.serviceRadius,
+          experienceLevel: user.providerProfile.experienceLevel,
+          bio: user.providerProfile.bio,
+          certifications: user.providerProfile.certifications,
+          portfolio: user.providerProfile.portfolio,
+          status: user.providerProfile.status,
+          averageRating: user.providerProfile.averageRating,
+          totalCompletedJobs: user.providerProfile.totalCompletedJobs,
+          totalReviews: user.providerProfile.totalReviews,
+          approvedAt: user.providerProfile.approvedAt,
+          approvedBy: user.providerProfile.approvedBy,
+        } : undefined,
+      })),
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+      filters: {
+        isActive,
+        role,
+        search,
+      },
+    };
+  }
+
   async findOne(id: string): Promise<User> {
     const user = await this.userModel.findById(id).exec();
     if (!user) {
@@ -729,5 +806,33 @@ export class UsersService {
       default:
         return ['Complete your profile setup', 'Submit for admin approval'];
     }
+  }
+
+  async toggleUserActivation(userId: string, isActive: boolean) {
+    const user = await this.userModel.findById(userId).exec();
+
+    if (!user) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { isActive },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+
+    return {
+      message: `User account ${isActive ? 'activated' : 'deactivated'} successfully`,
+      user: {
+        id: updatedUser!._id.toString(),
+        email: updatedUser!.email,
+        fullName: updatedUser!.fullName,
+        isActive: updatedUser!.isActive,
+        role: updatedUser!.role,
+      },
+    };
   }
 }

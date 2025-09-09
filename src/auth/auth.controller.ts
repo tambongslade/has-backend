@@ -19,6 +19,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -32,7 +33,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Register a new user',
     description:
-      'Create a new user account with email, password, full name, and optional phone number',
+      'Create a new user account with email, password, full name, and optional phone number. Account will be inactive until admin activation.',
   })
   @ApiBody({
     type: RegisterDto,
@@ -51,8 +52,8 @@ export class AuthController {
   })
   @ApiResponse({
     status: 201,
-    description: 'User successfully registered',
-    type: AuthResponseDto,
+    description: 'User successfully registered (account requires admin activation before login)',
+    type: RegisterResponseDto,
   })
   @ApiResponse({
     status: 409,
@@ -79,7 +80,7 @@ export class AuthController {
       },
     },
   })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
+  async register(@Body() registerDto: RegisterDto): Promise<RegisterResponseDto> {
     return this.authService.register(registerDto);
   }
 
@@ -109,12 +110,25 @@ export class AuthController {
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized - Invalid credentials',
+    description: 'Unauthorized - Invalid credentials or account not activated',
     schema: {
-      example: {
-        statusCode: 401,
-        message: 'Invalid credentials',
-        error: 'Unauthorized',
+      examples: {
+        invalidCredentials: {
+          summary: 'Invalid email or password',
+          value: {
+            statusCode: 401,
+            message: 'Invalid credentials',
+            error: 'Unauthorized',
+          },
+        },
+        accountDisabled: {
+          summary: 'Account not activated by admin',
+          value: {
+            statusCode: 401,
+            message: 'Account is disabled',
+            error: 'Unauthorized',
+          },
+        },
       },
     },
   })
