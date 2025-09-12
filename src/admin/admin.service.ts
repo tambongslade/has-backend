@@ -1213,7 +1213,7 @@ export class AdminService {
       );
     }
 
-    // Update provider status
+    // Update provider status and activate user account
     const updatedProvider = await this.userModel
       .findByIdAndUpdate(
         providerId,
@@ -1221,6 +1221,7 @@ export class AdminService {
           'providerProfile.status': ProviderStatus.ACTIVE,
           'providerProfile.approvedAt': new Date(),
           'providerProfile.approvedBy': adminId,
+          isActive: true, // Activate the user account when provider is approved
           ...(approveDto.adminNotes && { 'providerProfile.adminNotes': approveDto.adminNotes }),
         },
         { new: true },
@@ -1253,7 +1254,7 @@ export class AdminService {
       );
     }
 
-    // Update provider status
+    // Update provider status and ensure user account remains inactive
     const updatedProvider = await this.userModel
       .findByIdAndUpdate(
         providerId,
@@ -1262,6 +1263,7 @@ export class AdminService {
           'providerProfile.rejectedAt': new Date(),
           'providerProfile.rejectedBy': adminId,
           'providerProfile.rejectionReason': rejectDto.rejectionReason,
+          isActive: false, // Keep account inactive when rejected
           ...(rejectDto.adminNotes && { 'providerProfile.adminNotes': rejectDto.adminNotes }),
         },
         { new: true },
@@ -1305,6 +1307,14 @@ export class AdminService {
       'providerProfile.lastStatusChange': new Date(),
       'providerProfile.lastStatusChangedBy': adminId,
     };
+
+    // Set user account activation based on provider status
+    if (newStatus === ProviderStatus.ACTIVE) {
+      updateFields.isActive = true; // Activate account for active providers
+    } else if (newStatus === ProviderStatus.SUSPENDED || newStatus === ProviderStatus.INACTIVE) {
+      updateFields.isActive = false; // Deactivate account for suspended/inactive providers
+    }
+    // PENDING_APPROVAL providers remain inactive
 
     if (updateStatusDto.reason) {
       updateFields['providerProfile.statusChangeReason'] = updateStatusDto.reason;

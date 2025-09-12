@@ -34,17 +34,27 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-    // Create user with inactive status (requires admin activation)
+    // Determine activation status based on role
+    // Seekers and users without role are active immediately
+    // Providers are inactive until profile setup and approval
+    const isActive = registerDto.role !== 'provider';
+
+    // Create user with role-based activation status
     const user = new this.userModel({
       ...registerDto,
       password: hashedPassword,
-      isActive: false,
+      isActive,
     });
 
     const savedUser = await user.save();
 
+    // Generate appropriate message based on activation status
+    const message = isActive
+      ? 'Account created successfully. You can now log in.'
+      : 'Account created successfully. Please complete your provider profile setup and wait for approval before logging in.';
+
     return {
-      message: 'Account created successfully. Please wait for admin activation before logging in.',
+      message,
       user: {
         id: (savedUser._id as any).toString(),
         email: savedUser.email,
@@ -99,10 +109,32 @@ export class AuthService {
     userId: string,
     updateRoleDto: UpdateRoleDto,
   ): Promise<AuthResponseDto> {
-    // Find and update user
+    // Find the current user first to check existing state
+    const existingUser = await this.userModel.findById(userId);
+
+    if (!existingUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Determine new activation status based on role change
+    let isActive = existingUser.isActive;
+    
+    // If changing to provider, deactivate until profile setup and approval
+    if (updateRoleDto.role === 'provider' && existingUser.role !== 'provider') {
+      isActive = false;
+    }
+    // If changing from provider to seeker, activate immediately
+    else if (updateRoleDto.role === 'seeker' && existingUser.role === 'provider') {
+      isActive = true;
+    }
+
+    // Update user with new role and activation status
     const user = await this.userModel.findByIdAndUpdate(
       userId,
-      { role: updateRoleDto.role },
+      { 
+        role: updateRoleDto.role,
+        isActive 
+      },
       { new: true },
     );
 
