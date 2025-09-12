@@ -1156,7 +1156,7 @@ export class AdminService {
     };
   }
 
-  async getProviderForReview(providerId: string) {
+  async getProviderForReview(providerId: string): Promise<any> {
     const provider = await this.userModel
       .findOne({
         _id: providerId,
@@ -1187,12 +1187,64 @@ export class AdminService {
         .exec(),
     ]);
 
+    const profileCompleteness = this.calculateProfileCompleteness(provider.providerProfile);
+    const validationChecklist = this.generateValidationChecklist(provider, services, reviews);
+
     return {
-      provider,
-      services,
-      availability,
-      reviews,
-      profileCompleteness: this.calculateProfileCompleteness(provider.providerProfile),
+      provider: {
+        id: (provider._id as any).toString(),
+        fullName: provider.fullName,
+        email: provider.email,
+        phoneNumber: provider.phoneNumber,
+        isActive: provider.isActive,
+        createdAt: provider.createdAt,
+        updatedAt: provider.updatedAt,
+      },
+      providerProfile: {
+        serviceCategories: provider.providerProfile?.serviceCategories || [],
+        serviceAreas: provider.providerProfile?.serviceAreas || [],
+        serviceRadius: provider.providerProfile?.serviceRadius,
+        experienceLevel: provider.providerProfile?.experienceLevel,
+        certifications: provider.providerProfile?.certifications || [],
+        portfolio: provider.providerProfile?.portfolio || [],
+        bio: provider.providerProfile?.bio,
+        status: provider.providerProfile?.status,
+        averageRating: provider.providerProfile?.averageRating || 0,
+        totalCompletedJobs: provider.providerProfile?.totalCompletedJobs || 0,
+        totalReviews: provider.providerProfile?.totalReviews || 0,
+        isOnDuty: provider.providerProfile?.isOnDuty || false,
+        currentLocation: provider.providerProfile?.currentLocation,
+        lastLocationUpdate: provider.providerProfile?.lastLocationUpdate,
+        // Note: rejectionHistory and approvalHistory would be implemented if tracking history
+        rejectionHistory: [],
+        approvalHistory: [],
+      },
+      services: services.map(service => ({
+        id: (service._id as any).toString(),
+        title: service.title,
+        description: service.description,
+        category: service.category,
+        pricePerHour: (service as any).pricePerHour || 0,
+        status: service.status,
+      })),
+      availability: availability.map(avail => ({
+        dayOfWeek: avail.dayOfWeek,
+        timeSlots: avail.timeSlots,
+      })),
+      reviews: reviews.map(review => ({
+        id: (review._id as any).toString(),
+        rating: review.rating,
+        comment: review.comment,
+        reviewerId: {
+          id: (review.reviewerId as any)._id.toString(),
+          fullName: (review.reviewerId as any).fullName,
+        },
+        serviceCategory: review.serviceCategory,
+        createdAt: review.createdAt,
+        providerResponse: review.providerResponse,
+      })),
+      profileCompleteness,
+      validationChecklist,
     };
   }
 
@@ -1337,66 +1389,115 @@ export class AdminService {
     };
   }
 
-  private calculateProfileCompleteness(providerProfile?: any): {
-    completeness: number;
-    missingFields: string[];
-  } {
+  private calculateProfileCompleteness(providerProfile?: any) {
     if (!providerProfile) {
       return {
-        completeness: 0,
+        score: 0,
+        requiredFields: {
+          serviceCategories: false,
+          serviceAreas: false,
+          serviceRadius: false,
+          experienceLevel: false,
+        },
+        optionalFields: {
+          certifications: false,
+          portfolio: false,
+          bio: false,
+        },
         missingFields: ['serviceCategories', 'serviceAreas', 'serviceRadius', 'experienceLevel'],
+        recommendations: ['Complete all required fields to activate your provider profile'],
       };
     }
 
-    const requiredFields = [
-      'serviceCategories',
-      'serviceAreas',
-      'serviceRadius',
-      'experienceLevel',
-    ];
-    const optionalFields = ['certifications', 'portfolio', 'bio'];
+    const requiredFields = {
+      serviceCategories: !!(providerProfile.serviceCategories?.length > 0),
+      serviceAreas: !!(providerProfile.serviceAreas?.length > 0),
+      serviceRadius: !!providerProfile.serviceRadius,
+      experienceLevel: !!providerProfile.experienceLevel,
+    };
 
-    let completedRequired = 0;
-    let completedOptional = 0;
+    const optionalFields = {
+      certifications: !!(providerProfile.certifications?.length > 0),
+      portfolio: !!(providerProfile.portfolio?.length > 0),
+      bio: !!providerProfile.bio,
+    };
+
     const missingFields: string[] = [];
+    const recommendations: string[] = [];
 
     // Check required fields
-    requiredFields.forEach((field) => {
-      if (field === 'serviceCategories' || field === 'serviceAreas') {
-        if (providerProfile[field]?.length > 0) {
-          completedRequired++;
-        } else {
-          missingFields.push(field);
-        }
-      } else if (providerProfile[field]) {
-        completedRequired++;
-      } else {
+    Object.entries(requiredFields).forEach(([field, completed]) => {
+      if (!completed) {
         missingFields.push(field);
       }
     });
 
-    // Check optional fields
-    optionalFields.forEach((field) => {
-      if (field === 'certifications' || field === 'portfolio') {
-        if (providerProfile[field]?.length > 0) {
-          completedOptional++;
-        }
-      } else if (providerProfile[field]) {
-        completedOptional++;
-      }
-    });
+    // Generate recommendations
+    if (!optionalFields.certifications) {
+      recommendations.push('Add professional certifications to increase credibility');
+    }
+    if (!optionalFields.portfolio) {
+      recommendations.push('Upload portfolio images to showcase your work');
+    }
+    if (!optionalFields.bio) {
+      recommendations.push('Add a professional bio to attract more clients');
+    }
 
-    // Calculate completeness percentage
-    const requiredWeight = 0.8; // 80% weight for required fields
-    const optionalWeight = 0.2; // 20% weight for optional fields
-
-    const requiredScore = (completedRequired / requiredFields.length) * requiredWeight;
-    const optionalScore = (completedOptional / optionalFields.length) * optionalWeight;
-    const completeness = Math.round((requiredScore + optionalScore) * 100);
+    // Calculate completeness score
+    const requiredCompleted = Object.values(requiredFields).filter(Boolean).length;
+    const optionalCompleted = Object.values(optionalFields).filter(Boolean).length;
+    
+    const requiredWeight = 0.8;
+    const optionalWeight = 0.2;
+    
+    const requiredScore = (requiredCompleted / 4) * requiredWeight;
+    const optionalScore = (optionalCompleted / 3) * optionalWeight;
+    const score = Math.round((requiredScore + optionalScore) * 100);
 
     return {
-      completeness,
+      score,
+      requiredFields,
+      optionalFields,
       missingFields,
+      recommendations,
+    };
+  }
+
+  private generateValidationChecklist(provider: any, services: any[], reviews: any[]) {
+    const profile = provider.providerProfile;
+    
+    const profileComplete = !!(
+      profile?.serviceCategories?.length > 0 &&
+      profile?.serviceAreas?.length > 0 &&
+      profile?.serviceRadius &&
+      profile?.experienceLevel
+    );
+
+    const hasValidCertifications = !!(profile?.certifications?.length > 0);
+    const hasPortfolioImages = !!(profile?.portfolio?.length > 0);
+    
+    const serviceAreasReasonable = profile?.serviceAreas?.length <= 5; // Don't serve too many areas
+    
+    const experienceLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
+    const experienceLevelAppropriate = experienceLevels.includes(profile?.experienceLevel);
+
+    // Check for red flags
+    const avgRating = profile?.averageRating || 0;
+    const hasLowRating = avgRating > 0 && avgRating < 3;
+    const hasNegativeReviews = reviews.some(review => review.rating <= 2);
+    
+    const noRedFlags = !hasLowRating && !hasNegativeReviews && provider.isActive !== false;
+
+    const readyForApproval = profileComplete && serviceAreasReasonable && experienceLevelAppropriate && noRedFlags;
+
+    return {
+      profileComplete,
+      hasValidCertifications,
+      hasPortfolioImages,
+      serviceAreasReasonable,
+      experienceLevelAppropriate,
+      noRedFlags,
+      readyForApproval,
     };
   }
 

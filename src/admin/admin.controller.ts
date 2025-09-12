@@ -29,6 +29,7 @@ import {
   UpdateProviderStatusDto,
   ProviderValidationResponseDto,
   PendingProvidersResponseDto,
+  ProviderValidationDetailsDto,
 } from './dto/provider-validation.dto';
 
 @ApiTags('Admin Dashboard')
@@ -420,12 +421,13 @@ export class AdminController {
   @ApiResponse({
     status: 200,
     description: 'Provider details retrieved successfully',
+    type: ProviderValidationDetailsDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Provider not found',
   })
-  async getProviderForReview(@Param('id') providerId: string) {
+  async getProviderForReview(@Param('id') providerId: string): Promise<ProviderValidationDetailsDto> {
     return this.adminService.getProviderForReview(providerId);
   }
 

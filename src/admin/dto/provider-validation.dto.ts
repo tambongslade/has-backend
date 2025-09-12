@@ -153,3 +153,115 @@ export class PendingProvidersResponseDto {
     totalSuspended: number;
   };
 }
+
+export class ProviderValidationDetailsDto {
+  @ApiProperty({ description: 'Provider basic information' })
+  provider: {
+    id: string;
+    fullName: string;
+    email: string;
+    phoneNumber?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+
+  @ApiProperty({ description: 'Provider profile details for validation' })
+  providerProfile: {
+    serviceCategories: string[];
+    serviceAreas: string[];
+    serviceRadius: number;
+    experienceLevel: string;
+    certifications?: string[];
+    portfolio?: string[];
+    bio?: string;
+    status: ProviderStatus;
+    averageRating: number;
+    totalCompletedJobs: number;
+    totalReviews: number;
+    isOnDuty: boolean;
+    currentLocation?: {
+      type: string;
+      coordinates: [number, number];
+      address?: string;
+    };
+    lastLocationUpdate?: Date;
+    rejectionHistory?: Array<{
+      reason: string;
+      adminNotes?: string;
+      rejectedAt: Date;
+      rejectedBy: string;
+    }>;
+    approvalHistory?: Array<{
+      adminNotes?: string;
+      approvedAt: Date;
+      approvedBy: string;
+    }>;
+  };
+
+  @ApiProperty({ description: 'Services offered by the provider' })
+  services: Array<{
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    pricePerHour: number;
+    status: string;
+  }>;
+
+  @ApiProperty({ description: 'Provider availability schedule' })
+  availability: Array<{
+    dayOfWeek: string;
+    timeSlots: Array<{
+      startTime: string;
+      endTime: string;
+      isAvailable: boolean;
+    }>;
+  }>;
+
+  @ApiProperty({ description: 'Recent reviews for the provider' })
+  reviews: Array<{
+    id: string;
+    rating: number;
+    comment?: string;
+    reviewerId: {
+      id: string;
+      fullName: string;
+    };
+    serviceCategory: string;
+    createdAt: Date;
+    providerResponse?: {
+      response: string;
+      respondedAt: Date;
+    };
+  }>;
+
+  @ApiProperty({ description: 'Profile completeness analysis' })
+  profileCompleteness: {
+    score: number; // 0-100
+    requiredFields: {
+      serviceCategories: boolean;
+      serviceAreas: boolean;
+      serviceRadius: boolean;
+      experienceLevel: boolean;
+    };
+    optionalFields: {
+      certifications: boolean;
+      portfolio: boolean;
+      bio: boolean;
+    };
+    missingFields: string[];
+    recommendations: string[];
+  };
+
+  @ApiProperty({ description: 'Validation checklist for admins' })
+  validationChecklist: {
+    profileComplete: boolean;
+    hasValidCertifications: boolean;
+    hasPortfolioImages: boolean;
+    serviceAreasReasonable: boolean;
+    experienceLevelAppropriate: boolean;
+    noRedFlags: boolean;
+    readyForApproval: boolean;
+  };
+}
