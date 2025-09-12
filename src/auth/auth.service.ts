@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { User, UserDocument, ProviderStatus } from '../users/schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -39,19 +39,49 @@ export class AuthService {
     // Providers are inactive until profile setup and approval
     const isActive = registerDto.role !== 'provider';
 
-    // Create user with role-based activation status
-    const user = new this.userModel({
-      ...registerDto,
+    // Prepare user data
+    const userData: any = {
+      fullName: registerDto.fullName,
+      email: registerDto.email,
       password: hashedPassword,
+      phoneNumber: registerDto.phoneNumber,
+      role: registerDto.role,
       isActive,
-    });
+    };
 
+    // If provider role and provider setup data is provided, include it
+    if (registerDto.role === 'provider' && this.hasProviderSetupData(registerDto)) {
+      userData.providerProfile = {
+        serviceCategories: registerDto.serviceCategories,
+        serviceAreas: registerDto.serviceAreas,
+        serviceRadius: registerDto.serviceRadius,
+        experienceLevel: registerDto.experienceLevel,
+        certifications: registerDto.certifications || [],
+        portfolio: registerDto.portfolio || [],
+        bio: registerDto.bio,
+        status: ProviderStatus.PENDING_APPROVAL,
+        averageRating: 0,
+        totalCompletedJobs: 0,
+        totalReviews: 0,
+        isOnDuty: false,
+      };
+    }
+
+    // Create user
+    const user = new this.userModel(userData);
     const savedUser = await user.save();
 
-    // Generate appropriate message based on activation status
-    const message = isActive
-      ? 'Account created successfully. You can now log in.'
-      : 'Account created successfully. Please complete your provider profile setup and wait for approval before logging in.';
+    // Generate appropriate message based on activation status and profile setup
+    let message = 'Account created successfully.';
+    if (registerDto.role === 'provider') {
+      if (this.hasProviderSetupData(registerDto)) {
+        message += ' Your provider profile has been set up and is pending approval. You will be able to log in once approved.';
+      } else {
+        message += ' Please complete your provider profile setup and wait for approval before logging in.';
+      }
+    } else {
+      message += ' You can now log in.';
+    }
 
     return {
       message,
@@ -64,6 +94,15 @@ export class AuthService {
         isActive: savedUser.isActive,
       },
     };
+  }
+
+  private hasProviderSetupData(registerDto: RegisterDto): boolean {
+    return !!(
+      registerDto.serviceCategories?.length &&
+      registerDto.serviceAreas?.length &&
+      registerDto.serviceRadius &&
+      registerDto.experienceLevel
+    );
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
